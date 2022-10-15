@@ -51,3 +51,4 @@
 (package! peep-dired)
 (package! dired-open)
 (package! dired-subtree)
+(package! org-modern)

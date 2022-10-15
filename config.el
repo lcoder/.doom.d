@@ -126,4 +126,34 @@
       ;; :desc "Counsel eshell history" "e h" #'counsel-esh-history
       :desc "Vterm popup toggle" "v t" #'+vterm/toggle)
 
-;; (add-to-list 'auto-mode-alist '("\\.tsx\\'" . typescript-mode))
+;; vscode rename symbol
+(evil-define-key 'normal tide-mode-map
+  (kbd "<f2>") 'tide-rename-symbol
+  )
+
+;; org-modern
+;; refer https://github.com/jakebox/jake-emacs
+(use-package org-modern
+  :hook (org-mode . org-modern-mode)
+  :config
+  (setq org-modern-star '("●" "○" "✸" "✿")
+        org-modern-list '((42 . "◦") (43 . "•") (45 . "–"))
+        org-modern-tag nil
+        org-modern-priority nil
+        org-modern-todo nil))
+
+;; org mode ellipsis
+;; https://endlessparentheses.com/changing-the-org-mode-ellipsis.html
+(setq org-ellipsis " ⤵ ")
+
+;; font configuration
+;; refer https://github.com/jakebox/jake-emacs
+(setq text-scale-mode-step 1.1) ;; How much to adjust text scale by when using `text-scale-mode'
+(set-frame-font "SF Mono:size=16" nil t)
+;; Float height value (1.0) makes fixed-pitch take height 1.0 * height of default
+;; This means it will scale along with default when the text is zoomed
+(set-face-attribute 'fixed-pitch nil :font "Roboto Mono" :weight 'regular :height 1.0)
+;; Height of 160 seems to match perfectly with 12-point on Google Docs
+;; (set-face-attribute 'variable-pitch nil :family "Times New Roman" :height 160)
+(set-face-attribute 'variable-pitch nil :slant 'normal :weight 'normal :height 180 :width 'normal :foundry "nil" :family "Nunito Sans")
+(set-face-attribute 'variable-pitch nil :slant 'normal :weight 'normal :height 180 :width 'normal :foundry "nil" :family "Nunito Sans")
