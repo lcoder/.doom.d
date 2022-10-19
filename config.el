@@ -132,19 +132,49 @@
   )
 
 ;; org-modern
-;; refer https://github.com/jakebox/jake-emacs
-(use-package org-modern
-  :hook (org-mode . org-modern-mode)
-  :config
-  (setq org-modern-star '("●" "○" "✸" "✿")
-        org-modern-list '((42 . "◦") (43 . "•") (45 . "–"))
-        org-modern-tag nil
-        org-modern-priority nil
-        org-modern-todo nil))
-
-;; org mode ellipsis
-;; https://endlessparentheses.com/changing-the-org-mode-ellipsis.html
+;; ellipsis https://endlessparentheses.com/changing-the-org-mode-ellipsis.html
 (setq org-ellipsis " ⤵ ")
+
+(defun orgfile (name)
+  (concat "~/org/" name))
+
+(defun gtdfile (name)
+  (orgfile (concat "gtd/" name)))
+
+(defconst gtd-inbox (gtdfile "inbox.org"))
+(defconst gtd-mobile-inbox (gtdfile "mobile-inbox.org"))
+(defconst gtd-projects (gtdfile "projects.org"))
+(defconst gtd-tickler (gtdfile "tickler.org"))
+(defconst gtd-someday (gtdfile "someday.org"))
+
+(use-package! org
+  :config
+  (setq org-agenda-files (list gtd-inbox
+                               gtd-mobile-inbox
+                               gtd-projects
+                               gtd-tickler))
+  (setq org-capture-templates `(("t" "Todo [inbox]" entry
+                                 (file+headline ,gtd-inbox "Tasks")
+                                 "* TODO %i%?")
+                                ("T" "Tickler" entry
+                                 (file+headline ,gtd-tickler "Tickler")
+                                 "* %i%? \n %U")))
+  (setq org-refile-targets `((,gtd-projects :maxlevel . 3)
+                             (,gtd-someday :level . 1)
+                             (,gtd-tickler :maxlevel . 2)))
+  (setq org-todo-keywords '((sequence "TODO(t)" "WAITING(w)" "|" "DONE(d)"
+                                      "CANCELLED(c)")))
+  (setq org-html-doctype "html5")
+  (setq org-html-html5-fancy t)
+  (defun org-archive-finished-tasks ()
+    "Archive all tasks in any finished state."
+    (interactive)
+    (org-map-entries
+     (lambda ()
+       (org-archive-subtree)
+       (setq org-map-continue-from (org-element-property :begin (org-element-at-point))))
+     "/DONE|CANCELLED" 'agenda)))
+
 
 ;; font configuration
 ;; refer https://github.com/jakebox/jake-emacs
@@ -157,3 +187,31 @@
 ;; (set-face-attribute 'variable-pitch nil :family "Times New Roman" :height 160)
 (set-face-attribute 'variable-pitch nil :slant 'normal :weight 'normal :height 180 :width 'normal :foundry "nil" :family "Nunito Sans")
 (set-face-attribute 'variable-pitch nil :slant 'normal :weight 'normal :height 180 :width 'normal :foundry "nil" :family "Nunito Sans")
+
+;; insert-mode 中模拟emacs操作
+;; https://emacs-china.org/t/evil-mode-insert-mode-emacs-easy-c-n-c-p/22512/5
+;; (define-key evil-insert-state-map (kbd "C-n") 'next-line)
+;; (define-key evil-insert-state-map (kbd "C-p") 'previous-line)
+
+;; 下面这个放弃了，貌似不生效 https://github.com/noctuid/evil-guide#use-some-emacs-keybindings
+;; (setq evil-disable-insert-state-bindings t)
+
+;; 改用这个 kj -> esc
+(after! evil-escape
+  (setq-default evil-escape-delay 0.3)
+  (setq evil-escape-excluded-major-modes '(dired-mode))
+  (delete 'visual evil-escape-excluded-states)
+  (setq-default evil-escape-key-sequence "kj"))
+
+;; 缩进
+(defun my-web-mode-hook ()
+  "Hooks for Web mode."
+  (setq web-mode-markup-indent-offset 2)
+  (setq web-mode-css-indent-offset 2)
+  (setq web-mode-code-indent-offset 2)
+)
+(add-hook 'web-mode-hook  'my-web-mode-hook)
+
+;; doom theme
+;; (setq doom-theme 'doom-ayu-dark)
+(setq doom-theme 'doom-dark+)
