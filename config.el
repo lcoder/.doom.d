@@ -21,8 +21,8 @@
 ;; See 'C-h v doom-font' for documentation and more examples of what they
 ;; accept. For example:
 ;;
-;;(setq doom-font (font-spec :family "Fira Code" :size 12 :weight 'semi-light)
-;;      doom-variable-pitch-font (font-spec :family "Fira Sans" :size 13))
+;; (setq doom-font (font-spec :family "Fira Code" :size 12 :weight 'semi-light)
+     ;; doom-variable-pitch-font (font-spec :family "Fira Sans" :size 13))
 ;;
 ;; If you or Emacs can't find your font, use 'M-x describe-font' to look them
 ;; up, `M-x eval-region' to execute elisp code, and 'M-x doom/reload-font' to
@@ -32,8 +32,9 @@
 ;; There are two ways to load a theme. Both assume the theme is installed and
 ;; available. You can either set `doom-theme' or manually load a theme with the
 ;; `load-theme' function. This is the default:
-(setq doom-theme 'doom-one)
-;; (setq doom-font (font-spec :family "Source Code Pro" :size 15))
+
+(setq doom-theme 'doom-moonlight)
+(setq doom-font (font-spec :family "Menlo" :size 15))
 
 ;; This determines the style of line numbers in effect. If set to `nil', line
 ;; numbers are disabled. For relative line numbers, set this to `relative'.
@@ -175,18 +176,17 @@
        (setq org-map-continue-from (org-element-property :begin (org-element-at-point))))
      "/DONE|CANCELLED" 'agenda)))
 
-
 ;; font configuration
 ;; refer https://github.com/jakebox/jake-emacs
-(setq text-scale-mode-step 1.1) ;; How much to adjust text scale by when using `text-scale-mode'
-(set-frame-font "SF Mono:size=16" nil t)
+;; (setq text-scale-mode-step 1.1) ;; How much to adjust text scale by when using `text-scale-mode'
+;; (set-frame-font "SF Mono:size=16" nil t)
 ;; Float height value (1.0) makes fixed-pitch take height 1.0 * height of default
 ;; This means it will scale along with default when the text is zoomed
-(set-face-attribute 'fixed-pitch nil :font "Roboto Mono" :weight 'regular :height 1.0)
+;; (set-face-attribute 'fixed-pitch nil :font "Roboto Mono" :weight 'regular :height 1.0)
 ;; Height of 160 seems to match perfectly with 12-point on Google Docs
 ;; (set-face-attribute 'variable-pitch nil :family "Times New Roman" :height 160)
-(set-face-attribute 'variable-pitch nil :slant 'normal :weight 'normal :height 180 :width 'normal :foundry "nil" :family "Nunito Sans")
-(set-face-attribute 'variable-pitch nil :slant 'normal :weight 'normal :height 180 :width 'normal :foundry "nil" :family "Nunito Sans")
+;; (set-face-attribute 'variable-pitch nil :slant 'normal :weight 'normal :height 180 :width 'normal :foundry "nil" :family "Nunito Sans")
+;; (set-face-attribute 'variable-pitch nil :slant 'normal :weight 'normal :height 180 :width 'normal :foundry "nil" :family "Nunito Sans")
 
 ;; insert-mode 中模拟emacs操作
 ;; https://emacs-china.org/t/evil-mode-insert-mode-emacs-easy-c-n-c-p/22512/5
@@ -211,7 +211,3 @@
   (setq web-mode-code-indent-offset 2)
 )
 (add-hook 'web-mode-hook  'my-web-mode-hook)
-
-;; doom theme
-;; (setq doom-theme 'doom-ayu-dark)
-(setq doom-theme 'doom-dark+)
