@@ -33,8 +33,18 @@
 ;; available. You can either set `doom-theme' or manually load a theme with the
 ;; `load-theme' function. This is the default:
 
-(setq doom-theme 'doom-moonlight)
+(setq doom-theme 'doom-one)
 (setq doom-font (font-spec :family "Menlo" :size 15))
+
+;; 设置行高：https://github.com/syl20bnr/spacemacs/issues/10502
+;; http://xahlee.info/emacs/emacs/emacs_toggle_line_spacing.html
+;; (defun set-bigger-spacing ()
+;;   (setq-local default-text-properties '(line-spacing 0.25 line-height 1.25)))
+;; (add-hook 'text-mode-hook 'set-bigger-spacing)
+;; (add-hook 'prog-mode-hook 'set-bigger-spacing)
+;;
+;; (setq-default line-spacing 0.2)
+(setq default-text-properties '(line-spacing 0.1 line-height 1.1))
 
 ;; This determines the style of line numbers in effect. If set to `nil', line
 ;; numbers are disabled. For relative line numbers, set this to `relative'.
