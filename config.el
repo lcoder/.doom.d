@@ -34,8 +34,8 @@
 ;; `load-theme' function. This is the default:
 
 (setq doom-theme 'doom-one)
-(setq doom-font (font-spec :family "Menlo" :size 15))
-
+(setq doom-font (font-spec :family "Source Code Pro" :size 15)) ;; Menlo ;; Source Code Pro ;; SF Mono
+(setq doom-themes-treemacs-theme "doom-colors")
 ;; 设置行高：https://github.com/syl20bnr/spacemacs/issues/10502
 ;; http://xahlee.info/emacs/emacs/emacs_toggle_line_spacing.html
 ;; (defun set-bigger-spacing ()
@@ -142,9 +142,18 @@
   (kbd "<f2>") 'tide-rename-symbol
   )
 
-;; org-modern
+;; org-modern SF Mono
 ;; ellipsis https://endlessparentheses.com/changing-the-org-mode-ellipsis.html
-(setq org-ellipsis " ⤵ ")
+(setq org-ellipsis "   ⤵ ")
+(defun my/set-specific-faces-org ()
+  (set-face-attribute 'org-ellipsis nil
+                      :foreground "#E6DC88" :underline nil)
+  (face-remap-add-relative 'default :family "SF Mono") ;; SF Mono ;; Fira Code ;; Roboto Mono
+  )
+
+(add-hook 'org-mode-hook 'my/set-specific-faces-org)
+
+
 
 (defun orgfile (name)
   (concat "~/org/" name))
@@ -221,3 +230,7 @@
   (setq web-mode-code-indent-offset 2)
 )
 (add-hook 'web-mode-hook  'my-web-mode-hook)
+
+
+;; tide
+(setq tide-completion-ignore-case t)

@@ -54,3 +54,4 @@
 (package! dired-open)
 (package! dired-subtree)
 (package! org-roam)
+(package! org-bullets)
