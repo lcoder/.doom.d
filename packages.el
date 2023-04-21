@@ -55,3 +55,14 @@
 (package! dired-subtree)
 (package! org-roam)
 (package! org-bullets)
+(package! manage-minor-mode)
+
+
+;; https://github.com/manateelazycat/lsp-bridge/issues/185
+;; lsp-bridge
+(package! lsp-bridge
+  :recipe (:host github
+           :repo "manateelazycat/lsp-bridge"
+	   :files ("*")))
+(package! lsp-mode :disable t :ignore t)
+(package! company :disable t :ignore t)

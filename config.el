@@ -1,3 +1,6 @@
+;; 配置参考
+;; 1. https://huadeyu.tech/tools/emacs-setup-notes.html
+
 ;;; $DOOMDIR/config.el -*- lexical-binding: t; -*-
 
 ;; Place your private configuration here! Remember, you do not need to run 'doom
@@ -234,3 +237,30 @@
 
 ;; tide
 (setq tide-completion-ignore-case t)
+(setq tide-completion-fuzzy 1)
+(setq tide-enable-xref t)
+;; (add-hook 'typescript-tsx-mode (lambda () (tide-hl-identifier-mode -1)))
+;; (unless (eq major-mode 'typescript-tsx-mode) (tide-hl-identifier-mode -1))
+;; (remove-hook 'typescript-tsx-mode 'tide-hl-identifier-mode)
+;; (after! tide (unless (eq major-mode 'typescript-tsx-mode) (tide-hl-identifier-mode -1)))
+;; (add-hook 'tide-hl-identifier-hook (lambda () (tide-hl-identifier-mode)))
+;; (setq manage-minor-mode-default
+;;       '(
+;;         (typescript-tsx-mode
+;;          (off tide-hl-identifier-mode))
+;;         ))
+
+;; lsp bridge
+(use-package! lsp-bridge
+  :config
+  (map! :map acm-mode-map
+        [tab]           #'acm-select-next
+        [backtab]       #'acm-select-prev)
+  (map! :map doom-leader-code-map
+        :desc "LSP Rename"
+        "r"             #'lsp-bridge-rename
+        :desc "LSP Find declaration"
+        "j"             #'lsp-bridge-find-def)
+  (require 'yasnippet)
+  (yas-global-mode 1)
+  (global-lsp-bridge-mode))
