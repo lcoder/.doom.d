@@ -27,6 +27,40 @@
   (setq-default evil-escape-key-sequence "jk")
   (setq-default evil-escape-delay 0.2))
 
+;; Treemacs 配置
+(use-package treemacs
+  :ensure t
+  :defer t
+  :init
+  (with-eval-after-load 'winum
+    (define-key winum-keymap (kbd "M-0") #'treemacs-select-window))
+  :config
+  (setq treemacs-is-never-other-window t)
+  (setq treemacs-width 30)
+  :bind
+  (:map global-map
+        ("M-0"       . treemacs-select-window)
+        ("C-x t t"   . treemacs)
+        ("C-x t b"   . treemacs-bookmark)
+        ("C-x t d"   . treemacs-select-directory)))
+;; Evil 用户的 Treemacs 集成
+(use-package treemacs-evil
+  :after (treemacs evil)
+  :ensure t)
+;; Projectile 集成
+(use-package treemacs-projectile
+  :after (treemacs projectile)
+  :ensure t)
+;; 添加图标支持
+(use-package all-the-icons
+  :ensure t
+  :if (display-graphic-p))
+(use-package treemacs-all-the-icons
+  :after (treemacs all-the-icons)
+  :ensure t
+  :config
+  (treemacs-load-theme "all-the-icons"))
+
 ;; Projectile 配置
 (use-package projectile
   :init
@@ -131,8 +165,10 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(package-selected-packages
-   '(counsel-projectile doom-themes evil evil-escape ivy-rich lsp-ui rg
-			rustic vterm)))
+   '(all-the-icons counsel-projectile doom-themes evil-escape evil-org
+		   ivy-rich lsp-ui rg rustic treemacs
+		   treemacs-all-the-icons treemacs-evil
+		   treemacs-projectile vterm)))
 
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
@@ -176,12 +212,25 @@
   (setq org-startup-folded t)             ; 默认折叠所有标题
   (setq org-log-done 'time)               ; 记录 TODO 完成时间
   (setq org-agenda-files '("~/org"))      ; 设置议程文件目录
-  
+  (setq org-ellipsis "   ⤵ ")
   ;; TODO 工作流状态
   (setq org-todo-keywords
         '((sequence "TODO(t)" "IN-PROGRESS(i)" "WAITING(w)" "|" "DONE(d)" "CANCELLED(c)")))
-  
   :bind
   (("C-c a" . org-agenda)                 ; 打开议程视图
    ("C-c c" . org-capture)                ; 快速捕获
    ("C-c l" . org-store-link)))           ; 存储链接
+;; 添加 evil-org 配置
+(use-package evil-org
+  :ensure t
+  :after (evil org)
+  :hook (org-mode . evil-org-mode)
+  :config
+  (require 'evil-org-agenda)
+  (evil-org-agenda-set-keys)
+  ;; 添加键位主题设置
+  (evil-org-set-key-theme '(navigation insert textobjects additional calendar return))
+  ;; 修复 TAB 键行为
+  (evil-define-key '(normal insert) evil-org-mode-map
+    (kbd "<tab>") 'org-cycle
+    (kbd "TAB") 'org-cycle))
