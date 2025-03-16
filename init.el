@@ -91,15 +91,6 @@
 (use-package treemacs-projectile
   :after (treemacs projectile)
   :ensure t)
-;; 添加图标支持
-(use-package all-the-icons
-  :ensure t
-  :if (display-graphic-p))
-(use-package treemacs-all-the-icons
-  :after (treemacs all-the-icons)
-  :ensure t
-  :config
-  (treemacs-load-theme "all-the-icons"))
 
 ;; Projectile 配置
 (use-package projectile
@@ -155,6 +146,7 @@
 
 ;; 主题
 (use-package doom-themes
+  :ensure t
   :config
   (load-theme 'doom-one t))
 
