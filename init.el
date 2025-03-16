@@ -157,3 +157,22 @@
 (setq which-key-idle-secondary-delay 0.05)          ;; 后续按键的延迟
 (setq which-key-side-window-max-height 0.3)         ;; 窗口最大高度（屏幕高度的比例）
 (setq which-key-sort-order 'which-key-key-order)    ;; 按键排序方式
+
+
+;; Org mode 配置
+(use-package org
+  :ensure t
+  :config
+  (setq org-startup-indented t)           ; 启用缩进模式
+  (setq org-startup-folded t)             ; 默认折叠所有标题
+  (setq org-log-done 'time)               ; 记录 TODO 完成时间
+  (setq org-agenda-files '("~/org"))      ; 设置议程文件目录
+  
+  ;; TODO 工作流状态
+  (setq org-todo-keywords
+        '((sequence "TODO(t)" "IN-PROGRESS(i)" "WAITING(w)" "|" "DONE(d)" "CANCELLED(c)")))
+  
+  :bind
+  (("C-c a" . org-agenda)                 ; 打开议程视图
+   ("C-c c" . org-capture)                ; 快速捕获
+   ("C-c l" . org-store-link)))           ; 存储链接
