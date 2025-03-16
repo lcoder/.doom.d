@@ -18,6 +18,14 @@
   (setq evil-jumps-pre-jump-hook nil)
   :config
   (evil-mode 1))
+;; 添加 evil-escape 配置
+(use-package evil-escape
+  :ensure t
+  :after evil
+  :config
+  (evil-escape-mode 1)
+  (setq-default evil-escape-key-sequence "jk")
+  (setq-default evil-escape-delay 0.2))
 
 ;; Projectile 配置
 (use-package projectile
@@ -122,16 +130,17 @@
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(package-selected-packages nil))
+ '(package-selected-packages
+   '(counsel-projectile doom-themes evil evil-escape ivy-rich lsp-ui rg
+			rustic vterm)))
 
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- (set-face-attribute 'default nil 
-                     :font "FiraMono Nerd Font"
-                     :height 140))  ;; 140 对应 14pt 大小，你可以根据需要调整这个值
+ )
+  ;; 140 对应 14pt 大小，你可以根据需要调整这个值
 
 ;; 设置中文字体（可选）
 (dolist (charset '(kana han symbol cjk-misc bopomofo))
