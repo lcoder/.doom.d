@@ -2,45 +2,72 @@
 (require 'package)
 (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
 (package-initialize)
-(package-refresh-contents)
 
-;; 下载 Evil
-(unless (package-installed-p 'evil)
-  (package-install 'evil))
+;; 使用 use-package
+(unless (package-installed-p 'use-package)
+  (package-install 'use-package))
+(require 'use-package)
+(setq use-package-always-ensure t)
 
-;; 开启 Evil
-(require 'evil)
-(evil-mode 1)
+;; Evil 配置
+(use-package evil
+  :init
+  (setq evil-want-keybinding nil)  ;; 避免警告消息
+  (setq evil-jumps-cross-buffers t)
+  (setq evil-jumps-max-length 300)
+  (setq evil-jumps-pre-jump-hook nil)
+  :config
+  (evil-mode 1))
 
 ;; 终端
 (use-package vterm
-  :ensure t)
+  :defer t)  ;; 延迟加载，直到实际需要时
 
 ;; 主题
 (use-package doom-themes
-  :ensure t
   :config
   (load-theme 'doom-one t))
 
-;; 配置内置的 lsp-mode
+;; LSP 配置
 (use-package lsp-mode
-  :hook (rustic-mode . lsp)  ;; 在 rustic-mode 中自动启用 LSP
+  :defer t
+  :hook (rustic-mode . lsp)
+  :commands lsp
   :config
-  ;; 可选：调整 lsp-mode 的行为，例如提高性能
-  (setq lsp-idle-delay 0.5))
+  (setq lsp-idle-delay 0.5
+        lsp-log-io nil  ;; 禁用日志记录以提高性能
+        lsp-completion-provider :capf
+        lsp-prefer-flymake nil))
 
-;; 安装 rustic（用于 Rust 开发）
+;; Rust 开发配置
 (use-package rustic
-  :ensure t
+  :defer t
   :config
   (setq rustic-format-on-save t))
 
-;; 安装 lsp-ui（增强 LSP 的 UI，如悬浮文档、错误提示等）
+;; LSP UI 配置
 (use-package lsp-ui
-  :ensure t
+  :defer t
+  :commands lsp-ui-mode
   :config
   (setq lsp-ui-sideline-enable t
         lsp-ui-doc-enable t))
+
+;; 启用原生编译
+(setq package-native-compile t)
+(setq native-comp-async-report-warnings-errors nil)
+
+;; 减少 GC 频率
+(setq gc-cons-threshold 100000000)  ;; 100MB
+(setq read-process-output-max (* 1024 1024))  ;; 1MB
+
+;; 重新加载配置文件的快捷键
+(defun reload-init-file ()
+  "Reload init.el file"
+  (interactive)
+  (load-file user-init-file)
+  (message "Reloaded init.el"))
+(global-set-key (kbd "C-c r") 'reload-init-file)
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
@@ -48,9 +75,10 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(package-selected-packages nil))
+
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- )
+ (set-face-attribute 'default nil :font "FiraMono Nerd Font"))
