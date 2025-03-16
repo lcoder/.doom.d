@@ -1,0 +1,43 @@
+# Emacs backup files
+*~
+\#*\#
+.\#*
+
+# Auto-save files
+auto-save-list/
+.saves-*
+
+# Package management
+elpa/
+eln-cache/
+straight/
+
+# Various Emacs generated files and directories
+.cache/
+eshell/
+transient/
+url/
+.lsp-session*
+.org-id-locations
+.mc-lists.el
+projectile-bookmarks.eld
+recentf
+places
+smex-items
+
+# Compiled files
+*.elc
+
+# VTerm files
+vterm-*
+
+# Custom file (if separated from init.el)
+custom.el
+
+# Tutorial files
+tutorial/
+TUTORIAL
+TUTORIAL.*
+
+# Network Security Manager
+network-security.data 
