@@ -12,13 +12,53 @@
 ;; Evil 配置
 (use-package evil
   :init
-  (setq evil-want-keybinding nil)  ;; 避免警告消息
+  (setq evil-want-keybinding nil)              ;; 避免警告消息
+  (setq evil-want-integration t)               ;; 这个要在 evil-collection 之前设置
+  (setq evil-want-text-objects-textobj-all t)  ;; 启用所有文本对象
+  (setq evil-respect-visual-line-mode t)
+  (setq evil-undo-system 'undo-redo)           ;; 使用新的 undo 系统
+  (setq evil-search-module 'evil-search)
   (setq evil-jumps-cross-buffers t)
   (setq evil-jumps-max-length 300)
   (setq evil-jumps-pre-jump-hook nil)
   :config
   (evil-mode 1))
-;; 添加 evil-escape 配置
+
+;; 提供了一套统一的 Evil 键绑定，适用于许多常见的 Emacs 模式，大大增强了 Evil Mode 的使用体验。
+(use-package evil-collection
+  :ensure t
+  :after evil
+  :config
+  (evil-collection-init))
+
+;; surround 支持
+(use-package evil-surround
+  :ensure t
+  :after evil
+  :config
+  ;; 启用全局的 evil-surround 模式
+  (global-evil-surround-mode 1))
+
+;; surround 增强
+(use-package evil-embrace
+  :ensure t
+  :after (evil evil-surround)
+  :config
+  ;; 启用 evil-surround 和 embrace 的集成
+  (evil-embrace-enable-evil-surround-integration)
+
+  ;; 禁用帮助提示（可选，如果觉得提示窗口烦人）
+  ; (setq evil-embrace-show-help-p nil)
+
+  ;; 为 Org-mode 添加自定义环绕对
+  (defun my/org-mode-embrace-hook ()
+    "Add Org-mode specific surrounding pairs."
+    (embrace-add-pair ?* "*" "*")  ;; 加粗
+    (embrace-add-pair ?/ "/" "/")  ;; 斜体
+    (embrace-add-pair ?~ "~" "~")) ;; 代码
+  (add-hook 'org-mode-hook 'my/org-mode-embrace-hook))
+
+;; jk 退出插入模式
 (use-package evil-escape
   :ensure t
   :after evil
@@ -168,9 +208,10 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(package-selected-packages
-   '(all-the-icons counsel-projectile doom-themes evil-escape evil-org
-		   ivy-rich lsp-ui rg rustic treemacs
-		   treemacs-all-the-icons treemacs-evil
+   '(all-the-icons counsel-projectile doom-themes evil-embrace
+		   evil-escape evil-org evil-surround
+		   evil-textobj-entire ivy-rich lsp-ui rg rustic
+		   treemacs treemacs-all-the-icons treemacs-evil
 		   treemacs-projectile vterm)))
 
 (custom-set-faces
