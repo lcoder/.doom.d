@@ -159,6 +159,9 @@
   (message "Reloaded init.el"))
 (global-set-key (kbd "C-c r") 'reload-init-file)
 
+;; 关闭滚动条
+(scroll-bar-mode -1)
+
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
