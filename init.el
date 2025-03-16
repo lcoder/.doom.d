@@ -101,6 +101,10 @@
   (setq lsp-ui-sideline-enable t
         lsp-ui-doc-enable t))
 
+;; 启用原生编译
+(setq package-native-compile t)
+(setq native-comp-async-report-warnings-errors nil)
+
 ;; 减少 GC 频率
 (setq gc-cons-threshold 100000000)  ;; 100MB
 (setq read-process-output-max (* 1024 1024))  ;; 1MB
@@ -118,17 +122,16 @@
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(package-selected-packages
-   '(counsel-projectile doom-themes evil ivy-rich lsp-ui projectile
-			rustic vterm)))
+ '(package-selected-packages nil))
 
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- )
-  ;; 140 对应 14pt 大小，你可以根据需要调整这个值
+ (set-face-attribute 'default nil 
+                     :font "FiraMono Nerd Font"
+                     :height 140))  ;; 140 对应 14pt 大小，你可以根据需要调整这个值
 
 ;; 设置中文字体（可选）
 (dolist (charset '(kana han symbol cjk-misc bopomofo))
@@ -145,3 +148,12 @@
     (message "当前字体大小: %d (%dpt)" height (/ height 10))))
 ;; 绑定到快捷键 C-c f s
 (global-set-key (kbd "C-c f s") 'show-font-size)
+
+;; 启用内置 which-key
+(require 'which-key)
+(which-key-mode 1)
+;; 可选的一些自定义配置
+(setq which-key-idle-delay 0.5)                     ;; 显示延迟时间（秒）
+(setq which-key-idle-secondary-delay 0.05)          ;; 后续按键的延迟
+(setq which-key-side-window-max-height 0.3)         ;; 窗口最大高度（屏幕高度的比例）
+(setq which-key-sort-order 'which-key-key-order)    ;; 按键排序方式
