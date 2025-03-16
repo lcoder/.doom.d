@@ -229,7 +229,7 @@
 (use-package org
   :ensure t
   :custom
-  (org-ellipsis "   ⤵ ")
+  (org-ellipsis " ⤵ ")
   :custom-face
   (org-ellipsis ((t (:foreground "#E6DC88" :underline nil))))
   :config
