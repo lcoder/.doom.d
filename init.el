@@ -176,14 +176,18 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  )
-  ;; 140 对应 14pt 大小，你可以根据需要调整这个值
 
-;; 设置中文字体（可选）
-(dolist (charset '(kana han symbol cjk-misc bopomofo))
-  (set-fontset-font (frame-parameter nil 'font)
-                    charset
-                    (font-spec :family "PingFang SC"
-                              :size 14)))
+;; 删除 cnfonts 配置，替换为 cnfonts 配置
+(use-package cnfonts
+  :ensure t
+  :config
+  (cnfonts-mode 1)
+  ;; 添加两个字号增减的快捷键
+  :bind
+  (("s-=" . cnfonts-increase-fontsize)  ; Command + =
+   ("s-+" . cnfonts-increase-fontsize)  ; Command + Shift + =
+   ("s--" . cnfonts-decrease-fontsize)  ; Command + -
+   ("s-0" . cnfonts-set-default-fontsize)))   ; Command + 0
 
 ;; 显示当前字体大小的快捷命令
 (defun show-font-size ()
@@ -212,7 +216,6 @@
   (setq org-startup-folded t)             ; 默认折叠所有标题
   (setq org-log-done 'time)               ; 记录 TODO 完成时间
   (setq org-agenda-files '("~/org"))      ; 设置议程文件目录
-  (setq org-ellipsis "   ⤵ ")
   ;; TODO 工作流状态
   (setq org-todo-keywords
         '((sequence "TODO(t)" "IN-PROGRESS(i)" "WAITING(w)" "|" "DONE(d)" "CANCELLED(c)")))
@@ -220,6 +223,25 @@
   (("C-c a" . org-agenda)                 ; 打开议程视图
    ("C-c c" . org-capture)                ; 快速捕获
    ("C-c l" . org-store-link)))           ; 存储链接
+
+;; org-modern SF Mono
+;; ellipsis https://endlessparentheses.com/changing-the-org-mode-ellipsis.html
+(use-package org
+  :ensure t
+  :custom
+  (org-ellipsis "   ⤵ ")
+  :custom-face
+  (org-ellipsis ((t (:foreground "#E6DC88" :underline nil))))
+  :config
+  (add-hook 'org-mode-hook (lambda ()
+                            ;; 使用更持久的字体设置方式
+                            (set-face-attribute 'org-default nil :family "SF Mono")
+                            (buffer-face-set '(:family "SF Mono"))
+                            ;; 确保 org-ellipsis 的设置生效
+                            (set-face-attribute 'org-ellipsis nil
+                                              :foreground "#E6DC88"
+                                              :underline nil))))
+
 ;; 添加 evil-org 配置
 (use-package evil-org
   :ensure t
