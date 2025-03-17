@@ -27,23 +27,15 @@
 
 ;; Evil 配置
 (use-package evil
+  :ensure t
   :init
-  (setq evil-want-keybinding nil)              ;; 避免警告消息
-  (setq evil-want-integration t)               ;; 这个要在 evil-collection 之前设置
-  (setq evil-want-text-objects-textobj-all t)  ;; 启用所有文本对象
-  (setq evil-respect-visual-line-mode t)
-  (setq evil-undo-system 'undo-redo)           ;; 使用新的 undo 系统
-  (setq evil-search-module 'evil-search)
-  (setq evil-jumps-cross-buffers t)
-  (setq evil-jumps-max-length 300)
-  (setq evil-jumps-pre-jump-hook nil)
+  (setq evil-want-integration t) ;; This is optional since it's already set to t by default.
+  (setq evil-want-keybinding nil)
   :config
   (evil-mode 1))
-
-;; 提供了一套统一的 Evil 键绑定，适用于许多常见的 Emacs 模式，大大增强了 Evil Mode 的使用体验。
 (use-package evil-collection
-  :ensure t
   :after evil
+  :ensure t
   :config
   (evil-collection-init))
 
