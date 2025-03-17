@@ -9,6 +9,22 @@
 (require 'use-package)
 (setq use-package-always-ensure t)
 
+;; 显示行号配置
+(use-package display-line-numbers
+  ;; 内置包，不需要安装
+  :ensure nil
+  :config
+  ;; 设置行号类型（绝对行号）
+  (setq display-line-numbers-type t)
+  ;; 全局启用
+  (global-display-line-numbers-mode t)
+  ;; 在某些模式下禁用行号
+  (dolist (mode '(org-mode-hook
+                  vterm-mode-hook
+                  treemacs-mode-hook
+                  eshell-mode-hook))
+    (add-hook mode (lambda () (display-line-numbers-mode 0)))))
+
 ;; Evil 配置
 (use-package evil
   :init
@@ -97,19 +113,19 @@
   :init
   (projectile-mode +1)
   :bind-keymap
-  ("C-c p" . projectile-command-map)
-  :bind
-  ("C-r" . projectile-switch-project)  ;; 类似 VSCode 的 Ctrl+R
+  ("s-p" . projectile-command-map)
   :config
   (setq projectile-completion-system 'default)
   (setq projectile-indexing-method 'alien)
   (setq projectile-sort-order 'recently-active)
   (setq projectile-enable-caching t))
+
 ;; Projectile 集成 counsel 提供更好的补全体验
 (use-package counsel-projectile
   :after projectile
   :config
   (counsel-projectile-mode 1))
+
 ;; Ivy 配置
 (use-package ivy
   :init
@@ -118,10 +134,12 @@
   (setq ivy-use-virtual-buffers t)
   (setq ivy-count-format "(%d/%d) ")
   (setq enable-recursive-minibuffers t))
+
 (use-package counsel
   :after ivy
   :config
   (counsel-mode 1))
+
 (use-package ivy-rich
   :after ivy
   :init
