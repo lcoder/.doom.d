@@ -213,8 +213,8 @@
    '(all-the-icons counsel-projectile doom-themes evil-embrace
 		   evil-escape evil-org evil-surround
 		   evil-textobj-entire ivy-rich lsp-ui rg rustic
-		   treemacs treemacs-all-the-icons treemacs-evil
-		   treemacs-projectile vterm)))
+		   transpose-frame treemacs treemacs-all-the-icons
+		   treemacs-evil treemacs-projectile vterm)))
 
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
@@ -230,9 +230,9 @@
   (cnfonts-mode 1)
   ;; 添加两个字号增减的快捷键
   :bind
-  (("s-=" . cnfonts-increase-fontsize)  ; Command + =
-   ("s-+" . cnfonts-increase-fontsize)  ; Command + Shift + =
-   ("s--" . cnfonts-decrease-fontsize)  ; Command + -
+  (("s-=" . cnfonts-increase-fontsize)        ; Command + =
+   ("s-+" . cnfonts-increase-fontsize)        ; Command + Shift + =
+   ("s--" . cnfonts-decrease-fontsize)        ; Command + -
    ("s-0" . cnfonts-set-default-fontsize)))   ; Command + 0
 
 ;; 显示当前字体大小的快捷命令
