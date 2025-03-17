@@ -210,9 +210,9 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(package-selected-packages
-   '(all-the-icons counsel-projectile doom-themes evil-embrace
+   '(all-the-icons bing-dict counsel-projectile doom-themes evil-embrace
 		   evil-escape evil-org evil-surround
-		   evil-textobj-entire ivy-rich lsp-ui rg rustic
+		   evil-textobj-entire ivy-rich lsp-ui rg rustic sdcv
 		   transpose-frame treemacs treemacs-all-the-icons
 		   treemacs-evil treemacs-projectile vterm)))
 
@@ -230,9 +230,9 @@
   (cnfonts-mode 1)
   ;; 添加两个字号增减的快捷键
   :bind
-  (("s-=" . cnfonts-increase-fontsize)        ; Command + =
-   ("s-+" . cnfonts-increase-fontsize)        ; Command + Shift + =
-   ("s--" . cnfonts-decrease-fontsize)        ; Command + -
+  (("s-=" . cnfonts-increase-fontsize)  ; Command + =
+   ("s-+" . cnfonts-increase-fontsize)  ; Command + Shift + =
+   ("s--" . cnfonts-decrease-fontsize)  ; Command + -
    ("s-0" . cnfonts-set-default-fontsize)))   ; Command + 0
 
 ;; 显示当前字体大小的快捷命令
@@ -302,3 +302,16 @@
   (evil-define-key '(normal insert) evil-org-mode-map
     (kbd "<tab>") 'org-cycle
     (kbd "TAB") 'org-cycle))
+
+(use-package sdcv
+  :ensure t
+  :bind (("C-c d" . sdcv-search-input)
+         ("C-c i" . sdcv-search-pointer+)
+         ("C-c p" . sdcv-search-pointer))
+  :config
+  (setq sdcv-dictionary-simple-list '("XDICT英汉辞典"))
+  (setq sdcv-dictionary-complete-list '("牛津英汉双解美化版")))
+
+(use-package bing-dict
+     :ensure t
+     :bind ("C-c b" . bing-dict-brief))
