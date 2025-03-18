@@ -158,7 +158,19 @@
 (use-package doom-themes
   :ensure t
   :config
-  (load-theme 'doom-one t))
+  (load-theme 'doom-one-light t))
+;; 定义函数在亮暗主题之间切换
+(defun toggle-dark-light-theme ()
+  "Toggle between dark and light themes."
+  (interactive)
+  (if (eq (car custom-enabled-themes) 'doom-one)
+      (progn
+        (disable-theme 'doom-one)
+        (load-theme 'doom-one-light t))
+    (disable-theme 'doom-one-light)
+    (load-theme 'doom-one t)))
+;; 绑定到快捷键 (例如 F5)
+(global-set-key (kbd "<f5>") 'toggle-dark-light-theme)
 
 ;; LSP 配置
 (use-package lsp-mode
