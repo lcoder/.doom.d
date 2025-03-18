@@ -1,13 +1,12 @@
 ;; 确保包管理器已配置 MELPA
-(require 'package)
-(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
-(package-initialize)
-
-;; 使用 use-package
-(unless (package-installed-p 'use-package)
-  (package-install 'use-package))
-(require 'use-package)
-(setq use-package-always-ensure t)
+(use-package package
+  :ensure nil
+  :config
+  (package-initialize)
+  :custom
+  (package-native-compile t)
+  (package-archives '(("gnu"   . "http://elpa.gnu.org/packages/")
+                      ("melpa" . "https://melpa.org/packages/"))))
 
 ;; 显示行号配置
 (use-package display-line-numbers
@@ -172,22 +171,13 @@
 ;; 绑定到快捷键 (例如 F5)
 (global-set-key (kbd "<f5>") 'toggle-dark-light-theme)
 
-;; LSP 配置
-(use-package lsp-mode
-  :defer t
-  :hook (rustic-mode . lsp)
-  :commands lsp
-  :config
-  (setq lsp-idle-delay 0.5
-        lsp-log-io nil  ;; 禁用日志记录以提高性能
-        lsp-completion-provider :capf
-        lsp-prefer-flymake nil))
-
 ;; Rust 开发配置
 (use-package rustic
-  :defer t
+  :ensure t
   :config
-  (setq rustic-format-on-save t))
+  (setq rustic-format-on-save nil)
+  :custom
+  (rustic-cargo-use-last-stored-arguments t))
 
 ;; LSP UI 配置
 (use-package lsp-ui
