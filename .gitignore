@@ -45,3 +45,5 @@ tramp
 cnfonts.conf
 cnfonts/
 bookmarks
+lsp-bridge-venv/
+plugins/

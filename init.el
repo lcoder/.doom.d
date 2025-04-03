@@ -31,13 +31,14 @@
   (setq evil-want-integration t) ;; This is optional since it's already set to t by default.
   (setq evil-want-keybinding nil)
   :config
-  (evil-mode 1))
+  (evil-mode 1)
+  ;; 在 evil normal 状态下重新绑定 K
+  (evil-define-key 'normal 'global "K" 'lsp-bridge-popup-documentation))
 (use-package evil-collection
   :after evil
   :ensure t
   :config
   (evil-collection-init))
-
 ;; surround 支持
 (use-package evil-surround
   :ensure t
@@ -82,21 +83,19 @@
   (with-eval-after-load 'winum
     (define-key winum-keymap (kbd "M-0") #'treemacs-select-window))
   :config
-  (setq treemacs-is-never-other-window t)
-  (setq treemacs-width 30)
+  (setq treemacs-is-never-other-window nil)
+  (setq treemacs-project-follow-mode t)
+  (setq treemacs-follow-mode t)
+  (setq treemacs-filewatch-mode t)
+  (setq treemacs-fringe-indicator-mode 'always)
   :bind
   (:map global-map
         ("M-0"       . treemacs-select-window)
-        ("C-x t t"   . treemacs)
-        ("C-x t b"   . treemacs-bookmark)
-        ("C-x t d"   . treemacs-select-directory)))
+        ("C-x t t"   . treemacs)))
+
 ;; Evil 用户的 Treemacs 集成
 (use-package treemacs-evil
   :after (treemacs evil)
-  :ensure t)
-;; Projectile 集成
-(use-package treemacs-projectile
-  :after (treemacs projectile)
   :ensure t)
 
 ;; Projectile 配置
@@ -110,8 +109,6 @@
   (setq projectile-indexing-method 'alien)
   (setq projectile-sort-order 'recently-active)
   (setq projectile-enable-caching t))
-
-;; Projectile 集成 counsel 提供更好的补全体验
 (use-package counsel-projectile
   :after projectile
   :config
@@ -125,29 +122,14 @@
   (setq ivy-use-virtual-buffers t)
   (setq ivy-count-format "(%d/%d) ")
   (setq enable-recursive-minibuffers t))
-
-(use-package counsel
-  :after ivy
-  :config
-  (counsel-mode 1))
-
 (use-package ivy-rich
   :after ivy
   :init
   (ivy-rich-mode 1))
-
-;; Ripgrep 配置
-(use-package rg
-  :defer t
-  :init
-  (rg-enable-default-bindings)  ;; 使用默认键绑定 C-c s
+(use-package counsel
+  :after ivy
   :config
-  (setq rg-group-result t)      ;; 按文件分组显示结果
-  (setq rg-hide-command t)      ;; 隐藏命令行
-  (setq rg-show-columns nil)    ;; 不显示列号
-  :bind
-  (("C-c g" . rg-dwim)         ;; 快速搜索当前单词
-   ("C-c G" . rg)))            ;; 打开交互式搜索界面
+  (counsel-mode 1))
 
 ;; 终端
 (use-package vterm
@@ -157,7 +139,7 @@
 (use-package doom-themes
   :ensure t
   :config
-  (load-theme 'doom-one-light t))
+  (load-theme 'doom-one t))
 ;; 定义函数在亮暗主题之间切换
 (defun toggle-dark-light-theme ()
   "Toggle between dark and light themes."
@@ -171,29 +153,26 @@
 ;; 绑定到快捷键 (例如 F5)
 (global-set-key (kbd "<f5>") 'toggle-dark-light-theme)
 
-;; Rust 开发配置
-(use-package rustic
+;; markdown 配置
+(use-package markdown-mode
+  :ensure t
+  :init (setq markdown-command "multimarkdown")
+  :bind (:map markdown-mode-map
+         ("C-c C-e" . markdown-do)))
+
+;; lsp-bridge 配置
+(add-to-list 'load-path "~/.emacs.d/plugins/yasnippet")
+(add-to-list 'load-path "~/.emacs.d/plugins/lsp-bridge")
+
+;; 确保 company-mode 已安装
+(use-package company
   :ensure t
   :config
-  (setq rustic-format-on-save nil)
-  :custom
-  (rustic-cargo-use-last-stored-arguments t))
-
-;; LSP UI 配置
-(use-package lsp-ui
-  :defer t
-  :commands lsp-ui-mode
-  :config
-  (setq lsp-ui-sideline-enable t
-        lsp-ui-doc-enable t))
-
-;; 启用原生编译
-(setq package-native-compile t)
-(setq native-comp-async-report-warnings-errors nil)
-
-;; 减少 GC 频率
-(setq gc-cons-threshold 100000000)  ;; 100MB
-(setq read-process-output-max (* 1024 1024))  ;; 1MB
+  (global-company-mode 1))
+(require 'yasnippet)
+(yas-global-mode 1)
+(require 'lsp-bridge)
+(global-lsp-bridge-mode)
 
 ;; 重新加载配置文件的快捷键
 (defun reload-init-file ()
@@ -205,25 +184,6 @@
 
 ;; 关闭滚动条
 (scroll-bar-mode -1)
-
-(custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(package-selected-packages
-   '(all-the-icons bing-dict counsel-projectile doom-themes evil-embrace
-		   evil-escape evil-org evil-surround
-		   evil-textobj-entire ivy-rich lsp-ui rg rustic sdcv
-		   transpose-frame treemacs treemacs-all-the-icons
-		   treemacs-evil treemacs-projectile vterm)))
-
-(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- )
 
 ;; 删除 cnfonts 配置，替换为 cnfonts 配置
 (use-package cnfonts
@@ -249,12 +209,6 @@
 ;; 启用内置 which-key
 (require 'which-key)
 (which-key-mode 1)
-;; 可选的一些自定义配置
-(setq which-key-idle-delay 0.5)                     ;; 显示延迟时间（秒）
-(setq which-key-idle-secondary-delay 0.05)          ;; 后续按键的延迟
-(setq which-key-side-window-max-height 0.3)         ;; 窗口最大高度（屏幕高度的比例）
-(setq which-key-sort-order 'which-key-key-order)    ;; 按键排序方式
-
 
 ;; Org mode 配置
 (use-package org
@@ -298,13 +252,12 @@
   :config
   (require 'evil-org-agenda)
   (evil-org-agenda-set-keys)
-  ;; 添加键位主题设置
-  (evil-org-set-key-theme '(navigation insert textobjects additional calendar return))
   ;; 修复 TAB 键行为
   (evil-define-key '(normal insert) evil-org-mode-map
     (kbd "<tab>") 'org-cycle
     (kbd "TAB") 'org-cycle))
 
+;; 词典
 (use-package sdcv
   :ensure t
   :bind (("C-c d" . sdcv-search-input)
@@ -313,7 +266,6 @@
   :config
   (setq sdcv-dictionary-simple-list '("XDICT英汉辞典"))
   (setq sdcv-dictionary-complete-list '("牛津英汉双解美化版")))
-
 (use-package bing-dict
      :ensure t
      :bind ("C-c b" . bing-dict-brief))
