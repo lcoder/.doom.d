@@ -105,10 +105,17 @@
   :bind-keymap
   ("s-p" . projectile-command-map)
   :config
-  (setq projectile-completion-system 'default)
+  ;; 确保使用默认的completion系统，与ivy兼容
+  (setq projectile-completion-system 'ivy)
   (setq projectile-indexing-method 'alien)
   (setq projectile-sort-order 'recently-active)
-  (setq projectile-enable-caching t))
+  (setq projectile-enable-caching t)
+  ;; 确保projectile知道保存的项目列表
+  (setq projectile-known-projects-file (expand-file-name "projectile-bookmarks.eld" user-emacs-directory))
+  (setq projectile-auto-save-known-projects t)
+  ;; 如果已有项目文件，确保加载它
+  (when (file-exists-p projectile-known-projects-file)
+    (projectile-load-known-projects)))
 (use-package counsel-projectile
   :after projectile
   :config
