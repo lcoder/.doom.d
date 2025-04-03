@@ -32,8 +32,18 @@
   (setq evil-want-keybinding nil)
   :config
   (evil-mode 1)
-  ;; 在 evil normal 状态下重新绑定 K
-  (evil-define-key 'normal 'global "K" 'lsp-bridge-popup-documentation))
+  ;; 在 evil normal 状态下绑定lsp-bridge相关快捷键
+  (evil-define-key 'normal 'global "K" 'lsp-bridge-popup-documentation)
+  (define-key evil-motion-state-map "gR" #'lsp-bridge-rename)
+  (define-key evil-motion-state-map "gr" #'lsp-bridge-find-references)
+  (define-key evil-normal-state-map "gi" #'lsp-bridge-find-impl)
+  (define-key evil-motion-state-map "gd" #'lsp-bridge-find-def)  ;; 修正：从gd->jump改为gd->find-def
+  (define-key evil-motion-state-map "gs" #'lsp-bridge-restart-process)
+  (define-key evil-normal-state-map "gh" #'lsp-bridge-popup-documentation)
+  (define-key evil-normal-state-map "gn" #'lsp-bridge-diagnostic-jump-next)
+  (define-key evil-normal-state-map "gp" #'lsp-bridge-diagnostic-jump-prev)
+  (define-key evil-normal-state-map "ga" #'lsp-bridge-code-action)
+  (define-key evil-normal-state-map "ge" #'lsp-bridge-diagnostic-list))
 (use-package evil-collection
   :after evil
   :ensure t
