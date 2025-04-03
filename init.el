@@ -170,6 +170,8 @@
 ;; lsp-bridge 配置
 (add-to-list 'load-path "~/.emacs.d/plugins/yasnippet")
 (add-to-list 'load-path "~/.emacs.d/plugins/lsp-bridge")
+;; 设置lsp-bridge使用虚拟环境
+(setq lsp-bridge-python-command "~/.emacs.d/lsp-bridge-venv/bin/python3")
 
 (require 'yasnippet)
 (yas-global-mode 1)
