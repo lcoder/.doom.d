@@ -171,11 +171,6 @@
 (add-to-list 'load-path "~/.emacs.d/plugins/yasnippet")
 (add-to-list 'load-path "~/.emacs.d/plugins/lsp-bridge")
 
-;; 确保 company-mode 已安装
-(use-package company
-  :ensure t
-  :config
-  (global-company-mode 1))
 (require 'yasnippet)
 (yas-global-mode 1)
 (require 'lsp-bridge)
