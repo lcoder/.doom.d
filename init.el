@@ -232,31 +232,47 @@
   (setq org-startup-folded t)             ; 默认折叠所有标题
   (setq org-log-done 'time)               ; 记录 TODO 完成时间
   (setq org-agenda-files '("~/org"))      ; 设置议程文件目录
+  ;; 设置代码块高亮
+  (setq org-src-fontify-natively t)       ; 启用代码块语法高亮
+  (setq org-src-tab-acts-natively t)      ; 在代码块中使用语言的缩进规则
+  (setq org-edit-src-content-indentation 0) ; 代码块缩进从0开始
+  (setq org-src-preserve-indentation t)   ; 保持代码块的原始缩进
   ;; TODO 工作流状态
   (setq org-todo-keywords
         '((sequence "TODO(t)" "IN-PROGRESS(i)" "WAITING(w)" "|" "DONE(d)" "CANCELLED(c)")))
+  ;; 配置 org-babel
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((emacs-lisp . t)
+     (python . t)
+     (shell . t)
+     (sql . t)
+     (js . t)
+     (rust . t)))
+   (setq org-confirm-babel-evaluate nil)   ; 不询问是否执行代码块
+    ;; 设置 Rust 代码块的默认参数
+    (setq org-babel-default-header-args:rust '((:results . "output")
+                                              (:session . "*Rust*")
+                                              (:exports . "both")))
+    ;; 添加调试信息
+    (setq org-babel-rust-command "rust-script")
+    (setq org-babel-rust-command-args '("--debug"))
+  ;; 设置省略号样式
+  (setq org-ellipsis " ⤵ ")
+  (set-face-attribute 'org-ellipsis nil
+                     :foreground "#E6DC88"
+                     :underline nil)
+  ;; 设置字体
+  (add-hook 'org-mode-hook (lambda ()
+                            (set-face-attribute 'org-default nil :family "SF Mono")
+                            (buffer-face-set '(:family "SF Mono"))))
   :bind
   (("C-c a" . org-agenda)                 ; 打开议程视图
    ("C-c c" . org-capture)                ; 快速捕获
-   ("C-c l" . org-store-link)))           ; 存储链接
-
-;; org-modern SF Mono
-;; ellipsis https://endlessparentheses.com/changing-the-org-mode-ellipsis.html
-(use-package org
-  :ensure t
-  :custom
-  (org-ellipsis " ⤵ ")
-  :custom-face
-  (org-ellipsis ((t (:foreground "#E6DC88" :underline nil))))
-  :config
-  (add-hook 'org-mode-hook (lambda ()
-                            ;; 使用更持久的字体设置方式
-                            (set-face-attribute 'org-default nil :family "SF Mono")
-                            (buffer-face-set '(:family "SF Mono"))
-                            ;; 确保 org-ellipsis 的设置生效
-                            (set-face-attribute 'org-ellipsis nil
-                                              :foreground "#E6DC88"
-                                              :underline nil))))
+   ("C-c l" . org-store-link)             ; 存储链接
+   ("C-c C-," . org-insert-structure-template)  ; 插入代码块
+   ("C-c C-'" . org-edit-special)         ; 编辑代码块
+   ("C-c C-c" . org-babel-execute-src-block))) ; 执行代码块
 
 ;; 添加 evil-org 配置
 (use-package evil-org
@@ -283,3 +299,21 @@
 (use-package bing-dict
      :ensure t
      :bind ("C-c b" . bing-dict-brief))
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(package-selected-packages
+   '(bing-dict cnfonts company counsel-projectile default-text-scale
+	       doom-themes emojify evil-collection evil-embrace
+	       evil-escape evil-org evil-textobj-entire ivy-rich
+	       lsp-ui rg rustic sdcv transpose-frame
+	       treemacs-all-the-icons treemacs-evil
+	       treemacs-projectile vterm)))
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ )
