@@ -257,6 +257,16 @@
     ;; 添加调试信息
     (setq org-babel-rust-command "rust-script")
     (setq org-babel-rust-command-args '("--debug"))
+
+    ;; 添加环境变量设置函数
+    (defun my/org-babel-set-env-vars (orig-fun &rest args)
+      "在执行代码块前设置环境变量"
+      (let ((process-environment (copy-sequence process-environment)))
+        (push "RUST_BACKTRACE=full" process-environment)
+        (apply orig-fun args)))
+    
+    ;; 在执行代码块前自动设置环境变量
+    (advice-add 'org-babel-execute-src-block :around #'my/org-babel-set-env-vars)
   ;; 设置省略号样式
   (setq org-ellipsis " ⤵ ")
   (set-face-attribute 'org-ellipsis nil
