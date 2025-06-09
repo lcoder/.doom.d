@@ -237,6 +237,8 @@
   (setq org-src-tab-acts-natively t)      ; 在代码块中使用语言的缩进规则
   (setq org-edit-src-content-indentation 0) ; 代码块缩进从0开始
   (setq org-src-preserve-indentation t)   ; 保持代码块的原始缩进
+  ;; 设置 Rust 代码块的缩进为 2 个空格
+  (setq rust-indent-offset 2)
   ;; TODO 工作流状态
   (setq org-todo-keywords
         '((sequence "TODO(t)" "IN-PROGRESS(i)" "WAITING(w)" "|" "DONE(d)" "CANCELLED(c)")))
