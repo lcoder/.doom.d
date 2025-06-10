@@ -56,7 +56,6 @@
   :config
   ;; 启用全局的 evil-surround 模式
   (global-evil-surround-mode 1))
-
 ;; surround 增强
 (use-package evil-embrace
   :ensure t
@@ -84,6 +83,14 @@
   (evil-escape-mode 1)
   (setq-default evil-escape-key-sequence "jk")
   (setq-default evil-escape-delay 0.2))
+
+(use-package undo-tree
+  :ensure t
+  :after evil
+  :diminish
+  :config
+  (evil-set-undo-system 'undo-tree)
+  (global-undo-tree-mode 1))
 
 ;; Treemacs 配置
 (use-package treemacs
@@ -237,6 +244,11 @@
   (setq org-src-tab-acts-natively t)      ; 在代码块中使用语言的缩进规则
   (setq org-edit-src-content-indentation 0) ; 代码块缩进从0开始
   (setq org-src-preserve-indentation t)   ; 保持代码块的原始缩进
+  ;; 设置代码块的默认参数，确保每次执行时都替换结果
+  (setq org-babel-default-header-args
+        '((:results . "replace")
+          (:exports . "both")
+          (:session . "none")))
   ;; 设置 Rust 代码块的缩进为 2 个空格
   (setq rust-indent-offset 2)
   ;; TODO 工作流状态
@@ -322,7 +334,7 @@
 	       evil-escape evil-org evil-textobj-entire ivy-rich
 	       lsp-ui rg rustic sdcv transpose-frame
 	       treemacs-all-the-icons treemacs-evil
-	       treemacs-projectile vterm)))
+	       treemacs-projectile undo-tree vterm)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
