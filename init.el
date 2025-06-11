@@ -311,6 +311,9 @@
     (kbd "<tab>") 'org-cycle
     (kbd "TAB") 'org-cycle))
 
+;; 开启自动折行
+(setq truncate-lines nil)
+
 ;; 词典
 (use-package sdcv
   :ensure t
@@ -334,7 +337,7 @@
 	       evil-escape evil-org evil-textobj-entire ivy-rich
 	       lsp-ui rg rustic sdcv transpose-frame
 	       treemacs-all-the-icons treemacs-evil
-	       treemacs-projectile undo-tree vterm)))
+	       treemacs-projectile undo-tree valign vterm)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
