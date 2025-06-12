@@ -16,13 +16,7 @@
   ;; 设置行号类型（绝对行号）
   (setq display-line-numbers-type t)
   ;; 全局启用
-  (global-display-line-numbers-mode t)
-  ;; 在某些模式下禁用行号
-  (dolist (mode '(org-mode-hook
-                  vterm-mode-hook
-                  treemacs-mode-hook
-                  eshell-mode-hook))
-    (add-hook mode (lambda () (display-line-numbers-mode 0)))))
+  (global-display-line-numbers-mode t))
 
 ;; Evil 配置
 (use-package evil
@@ -235,6 +229,8 @@
 (use-package org
   :ensure t
   :config
+  ;; 禁用行号显示
+  (setq display-line-numbers nil)
   (setq org-startup-indented t)           ; 启用缩进模式
   (setq org-startup-folded t)             ; 默认折叠所有标题
   (setq org-log-done 'time)               ; 记录 TODO 完成时间
