@@ -200,8 +200,17 @@
 ;; 关闭滚动条
 (scroll-bar-mode -1)
 
-;; 设置全局英文字体为 FiraMono Nerd Font，大小 14pt
-(set-face-attribute 'default nil :family "FiraMono Nerd Font" :height 140)
+(defun load-font-setup ()
+  (let ((emacs-font-size 14)
+        (english-font-name "Iosevka Nerd Font")
+        (chinese-font-name "Sarasa Fixed SC"))
+    (set-face-attribute 'default nil :family english-font-name :height (* emacs-font-size 10))
+    (set-fontset-font t 'han (font-spec :family chinese-font-name))
+    (set-fontset-font t 'cjk-misc (font-spec :family chinese-font-name))
+    (set-fontset-font t 'bopomofo (font-spec :family chinese-font-name))
+    (set-fontset-font t 'kana (font-spec :family chinese-font-name))
+    (set-fontset-font t 'symbol (font-spec :family chinese-font-name))))
+(load-font-setup)
 
 ;; 显示当前字体大小的快捷命令
 (defun show-font-size ()
@@ -268,8 +277,14 @@
     
     ;; 在执行代码块前自动设置环境变量
     (advice-add 'org-babel-execute-src-block :around #'my/org-babel-set-env-vars)
-  ;; 设置省略号样式
+  ;; 设置省略号样式和标题对齐
   (setq org-ellipsis " ⤵ ")
+  (set-face-attribute 'org-ellipsis nil :foreground "#E6DC88" :height 1.1 :weight 'bold)
+  (set-face-attribute 'org-level-1 nil :height 1.2 :weight 'bold)
+  (set-face-attribute 'org-level-2 nil :height 1.1 :weight 'bold)
+  (set-face-attribute 'org-level-3 nil :height 1.0 :weight 'bold)
+  (set-face-attribute 'org-level-4 nil :height 1.0 :weight 'bold)
+  ;; 你可以根据需要继续设置 org-level-5 等
   :bind
   (("C-c a" . org-agenda)                 ; 打开议程视图
    ("C-c c" . org-capture)                ; 快速捕获
@@ -312,7 +327,7 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(package-selected-packages
-   '(bing-dict cnfonts company counsel-projectile default-text-scale
+   '(bing-dict company counsel-projectile default-text-scale
 	       doom-themes emojify evil-collection evil-embrace
 	       evil-escape evil-org evil-textobj-entire ivy-rich
 	       lsp-ui rg rustic sdcv transpose-frame
