@@ -200,17 +200,8 @@
 ;; 关闭滚动条
 (scroll-bar-mode -1)
 
-;; 删除 cnfonts 配置，替换为 cnfonts 配置
-(use-package cnfonts
-  :ensure t
-  :config
-  (cnfonts-mode 1)
-  ;; 添加两个字号增减的快捷键
-  :bind
-  (("s-=" . cnfonts-increase-fontsize)  ; Command + =
-   ("s-+" . cnfonts-increase-fontsize)  ; Command + Shift + =
-   ("s--" . cnfonts-decrease-fontsize)  ; Command + -
-   ("s-0" . cnfonts-set-default-fontsize)))   ; Command + 0
+;; 设置全局英文字体为 FiraMono Nerd Font，大小 14pt
+(set-face-attribute 'default nil :family "FiraMono Nerd Font" :height 140)
 
 ;; 显示当前字体大小的快捷命令
 (defun show-font-size ()
@@ -279,13 +270,6 @@
     (advice-add 'org-babel-execute-src-block :around #'my/org-babel-set-env-vars)
   ;; 设置省略号样式
   (setq org-ellipsis " ⤵ ")
-  (set-face-attribute 'org-ellipsis nil
-                     :foreground "#E6DC88"
-                     :underline nil)
-  ;; 设置字体
-  (add-hook 'org-mode-hook (lambda ()
-                            (set-face-attribute 'org-default nil :family "SF Mono")
-                            (buffer-face-set '(:family "SF Mono"))))
   :bind
   (("C-c a" . org-agenda)                 ; 打开议程视图
    ("C-c c" . org-capture)                ; 快速捕获
