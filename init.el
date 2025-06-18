@@ -279,7 +279,7 @@
     (advice-add 'org-babel-execute-src-block :around #'my/org-babel-set-env-vars)
   ;; 设置省略号样式和标题对齐
   (setq org-ellipsis " ⤵ ")
-  (set-face-attribute 'org-ellipsis nil :foreground "#E6DC88" :height 1.1 :weight 'bold)
+  (set-face-attribute 'org-ellipsis nil :foreground "#E6DC88" :height 1 :weight 'bold)
   (set-face-attribute 'org-level-1 nil :height 1.2 :weight 'bold)
   (set-face-attribute 'org-level-2 nil :height 1.1 :weight 'bold)
   (set-face-attribute 'org-level-3 nil :height 1.0 :weight 'bold)
