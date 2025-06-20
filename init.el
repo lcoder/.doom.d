@@ -15,6 +15,9 @@
   :config
   ;; 设置行号类型（绝对行号）
   (setq display-line-numbers-type t)
+  ;; 设置行号右对齐
+  (setq display-line-numbers-grow-only t)
+  (setq display-line-numbers-width-start t)
   ;; 全局启用
   (global-display-line-numbers-mode t))
 
@@ -202,8 +205,10 @@
 
 (defun load-font-setup ()
   (let ((emacs-font-size 14)
-        (english-font-name "Iosevka Nerd Font")
-        (chinese-font-name "Sarasa Fixed SC"))
+        ;; (english-font-name "Iosevka Nerd Font")
+        ;; (chinese-font-name "Sarasa Fixed SC"))
+        (english-font-name "Sarasa Term SC Nerd")
+        (chinese-font-name "Sarasa Term SC Nerd"))
     (set-face-attribute 'default nil :family english-font-name :height (* emacs-font-size 10))
     (set-fontset-font t 'han (font-spec :family chinese-font-name))
     (set-fontset-font t 'cjk-misc (font-spec :family chinese-font-name))
