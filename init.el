@@ -233,9 +233,8 @@
 ;; Org mode 配置
 (use-package org
   :ensure t
+  :hook (org-mode . (lambda () (display-line-numbers-mode -1)))
   :config
-  ;; 禁用行号显示
-  (setq display-line-numbers nil)
   (setq org-startup-indented t)           ; 启用缩进模式
   (setq org-startup-folded t)             ; 默认折叠所有标题
   (setq org-log-done 'time)               ; 记录 TODO 完成时间
