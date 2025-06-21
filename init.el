@@ -238,7 +238,7 @@
   (setq org-startup-indented t)           ; 启用缩进模式
   (setq org-startup-folded t)             ; 默认折叠所有标题
   (setq org-log-done 'time)               ; 记录 TODO 完成时间
-  (setq org-agenda-files '("~/org"))      ; 设置议程文件目录
+  (setq org-agenda-files '("~/Library/Mobile Documents/com~apple~CloudDocs/org"))      ; 设置议程文件目录
   ;; 设置代码块高亮
   (setq org-src-fontify-natively t)       ; 启用代码块语法高亮
   (setq org-src-tab-acts-natively t)      ; 在代码块中使用语言的缩进规则
@@ -254,6 +254,54 @@
   ;; TODO 工作流状态
   (setq org-todo-keywords
         '((sequence "TODO(t)" "IN-PROGRESS(i)" "WAITING(w)" "|" "DONE(d)" "CANCELLED(c)")))
+  
+  ;; ===== 新增：快速打开 org 文件的功能 =====
+  
+  ;; 定义 org 文件目录
+  (defvar my/org-directory "~/Library/Mobile Documents/com~apple~CloudDocs/org"
+    "Org 文件目录路径")
+  
+  ;; 快速打开 org 文件的函数
+  (defun my/open-org-file ()
+    "快速选择并打开 org 目录下的 org 文件"
+    (interactive)
+    (let ((default-directory (expand-file-name my/org-directory)))
+      (if (file-exists-p default-directory)
+          (counsel-find-file)
+        (message "Org 目录不存在: %s" my/org-directory))))
+  
+  ;; 列出所有 org 文件的函数
+  (defun my/list-org-files ()
+    "列出 org 目录下的所有 .org 文件"
+    (interactive)
+    (let* ((org-dir (expand-file-name my/org-directory))
+           (org-files (when (file-exists-p org-dir)
+                       (directory-files org-dir t "\\.org$"))))
+      (if org-files
+          (ivy-read "选择 org 文件: "
+                    (mapcar (lambda (file)
+                             (cons (file-name-nondirectory file) file))
+                           org-files)
+                    :action (lambda (x) (find-file (cdr x)))
+                    :caller 'my/list-org-files)
+        (message "在 %s 中没有找到 org 文件" org-dir))))
+  
+  ;; 创建新的 org 文件的函数
+  (defun my/create-org-file ()
+    "在 org 目录下创建新的 org 文件"
+    (interactive)
+    (let* ((org-dir (expand-file-name my/org-directory))
+           (filename (read-string "输入新文件名 (不需要 .org 扩展名): ")))
+      (when (and filename (not (string-empty-p filename)))
+        (let ((filepath (expand-file-name (concat filename ".org") org-dir)))
+          (find-file filepath)
+          (message "创建新的 org 文件: %s" filepath)))))
+  
+  ;; 启动时自动列出 org 文件的选项 (可选，取消注释下面的行来启用)
+  ;; (add-hook 'emacs-startup-hook 'my/list-org-files)
+  
+  ;; ===== 快速打开 org 文件功能结束 =====
+
   ;; 配置 org-babel
   (org-babel-do-load-languages
    'org-babel-load-languages
@@ -396,7 +444,10 @@
    ("C-c l" . org-store-link)             ; 存储链接
    ("C-c C-," . org-insert-structure-template)  ; 插入代码块
    ("C-c C-'" . org-edit-special)         ; 编辑代码块
-   ("C-c C-c" . org-babel-execute-src-block))) ; 执行代码块
+   ("C-c C-c" . org-babel-execute-src-block) ; 执行代码块
+   ("C-c o" . my/list-org-files)          ; 列出 org 文件
+   ("C-c O" . my/open-org-file)           ; 打开 org 目录
+   ("C-c n" . my/create-org-file)))       ; 创建新的 org 文件
 
 ;; 添加 evil-org 配置
 (use-package evil-org
