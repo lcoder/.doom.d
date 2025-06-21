@@ -281,6 +281,107 @@
     
     ;; 在执行代码块前自动设置环境变量
     (advice-add 'org-babel-execute-src-block :around #'my/org-babel-set-env-vars)
+
+    ;; ===== 新增：支持依赖的 Rust 代码块功能 =====
+    
+    ;; 解析依赖字符串的函数
+    (defun my/parse-deps-string (deps-str)
+      "解析依赖字符串，返回依赖列表"
+      (when (and deps-str (not (string-empty-p deps-str)))
+        (let ((deps-list '())
+              (current-dep "")
+              (in-brace 0)
+              (i 0))
+          (while (< i (length deps-str))
+            (let ((char (aref deps-str i)))
+              (cond
+               ((= char ?\") 
+                (setq current-dep (concat current-dep (char-to-string char))))
+               ((= char ?\{)
+                (setq in-brace (1+ in-brace))
+                (setq current-dep (concat current-dep (char-to-string char))))
+               ((= char ?\})
+                (setq in-brace (1- in-brace))
+                (setq current-dep (concat current-dep (char-to-string char))))
+               ((and (= char ?,) (= in-brace 0))
+                (setq deps-list (append deps-list (list (string-trim current-dep))))
+                (setq current-dep ""))
+               (t
+                (setq current-dep (concat current-dep (char-to-string char)))))
+              (setq i (1+ i))))
+          ;; 添加最后一个依赖
+          (when (not (string-empty-p current-dep))
+            (setq deps-list (append deps-list (list (string-trim current-dep)))))
+          deps-list)))
+
+    ;; 生成 Cargo.toml 内容
+    (defun my/generate-cargo-toml (deps-list)
+      "根据依赖列表生成 Cargo.toml 内容"
+      (let ((cargo-content "[package]\nname = \"org-babel-rust\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[dependencies]\n")
+            ;; 默认依赖
+            (default-deps '("serde = { version = \"1.0\", features = [\"derive\"] }"
+                           "serde_json = \"1.0\"")))
+        ;; 添加默认依赖
+        (dolist (dep default-deps)
+          (setq cargo-content (concat cargo-content dep "\n")))
+        ;; 添加用户指定的依赖
+        (dolist (dep deps-list)
+          (setq cargo-content (concat cargo-content dep "\n")))
+        cargo-content))
+
+    ;; 创建临时项目目录
+    (defun my/create-temp-rust-project (deps-list)
+      "创建临时 Rust 项目，返回项目目录路径"
+      (let* ((temp-dir (make-temp-file "org-rust-" t))
+             (src-dir (expand-file-name "src" temp-dir))
+             (cargo-toml (expand-file-name "Cargo.toml" temp-dir))
+             (main-rs (expand-file-name "main.rs" src-dir)))
+        ;; 创建 src 目录
+        (make-directory src-dir t)
+        ;; 生成 Cargo.toml
+        (write-region (my/generate-cargo-toml deps-list) nil cargo-toml)
+        ;; 创建空的 main.rs
+        (write-region "" nil main-rs)
+        temp-dir))
+
+    ;; 清理临时项目
+    (defun my/cleanup-temp-project (temp-dir)
+      "清理临时项目目录"
+      (when (and temp-dir (file-exists-p temp-dir))
+        (delete-directory temp-dir t)))
+
+    ;; 自定义的 Rust 代码块执行函数
+    (defun org-babel-execute:rust (body params)
+      "执行 Rust 代码块，支持依赖管理"
+      (let* ((deps-str (cdr (assq :deps params)))
+             (deps-list (my/parse-deps-string deps-str))
+             (temp-dir (my/create-temp-rust-project deps-list))
+             (main-rs (expand-file-name "src/main.rs" temp-dir))
+             (output nil)
+             (error-output nil))
+        (unwind-protect
+            (progn
+              ;; 写入代码到 main.rs
+              (write-region body nil main-rs)
+              
+              ;; 执行 cargo run --quiet 来抑制编译信息
+              (let ((default-directory temp-dir))
+                (with-temp-buffer
+                  (let ((exit-code (call-process "cargo" nil t nil "run" "--quiet")))
+                    (setq output (buffer-string))
+                    (when (/= exit-code 0)
+                      (setq error-output output)
+                      (setq output nil)))))
+              
+              ;; 返回结果
+              (if error-output
+                  (format "错误:\n%s" error-output)
+                output))
+          ;; 清理临时文件
+          (my/cleanup-temp-project temp-dir))))
+
+    ;; ===== 新增功能结束 =====
+
   ;; 设置省略号样式和标题对齐
   (setq org-ellipsis " ⤵ ")
   (set-face-attribute 'org-ellipsis nil :foreground "#E6DC88")
