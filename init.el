@@ -207,6 +207,8 @@
   (let ((emacs-font-size 14)
         ;; (english-font-name "Iosevka Nerd Font")
         ;; (chinese-font-name "Sarasa Fixed SC"))
+        ;; (english-font-name "Sarasa Term SC Nerd")
+        ;; (chinese-font-name "Sarasa Term SC Nerd")
         (english-font-name "Sarasa Term SC Nerd")
         (chinese-font-name "Sarasa Term SC Nerd"))
     (set-face-attribute 'default nil :family english-font-name :height (* emacs-font-size 10))
@@ -301,6 +303,80 @@
   ;; (add-hook 'emacs-startup-hook 'my/list-org-files)
   
   ;; ===== 快速打开 org 文件功能结束 =====
+
+  ;; ===== 新增：代码块复制功能 =====
+  
+  ;; 复制当前代码块内容的函数
+  (defun my/copy-org-src-block ()
+    "复制当前代码块的内容到剪贴板"
+    (interactive)
+    (when (org-in-src-block-p)
+      (let* ((element (org-element-at-point))
+             (lang (org-element-property :language element))
+             (begin (org-element-property :begin element))
+             (end (org-element-property :end element))
+             (src-block (buffer-substring-no-properties begin end))
+             ;; 提取代码内容（去掉 #+BEGIN_SRC 和 #+END_SRC 行）
+             (lines (split-string src-block "\n"))
+             (content-lines (cdr (butlast lines 1))) ; 去掉第一行和最后一行
+             (content (string-join content-lines "\n")))
+        (kill-new content)
+        (message "已复制 %s 代码块内容到剪贴板"))
+      (unless (org-in-src-block-p)
+        (message "光标不在代码块内"))))
+  
+  ;; 复制代码块内容（仅代码，不包括语言标识）
+  (defun my/copy-org-src-block-content-only ()
+    "只复制代码块的代码内容，不包括语言标识和围栏"
+    (interactive)
+    (when (org-in-src-block-p)
+      (save-excursion
+        (let ((element (org-element-at-point)))
+          (goto-char (org-element-property :post-affiliated element))
+          (forward-line 1) ; 跳过 #+BEGIN_SRC 行
+          (let ((start (point)))
+            (goto-char (org-element-property :end element))
+            (when (re-search-backward "^[ \t]*#\\+END_SRC" nil t)
+              (let ((content (buffer-substring-no-properties start (point))))
+                (kill-new content)
+                (message "已复制代码内容到剪贴板"))))))
+      (unless (org-in-src-block-p)
+        (message "光标不在代码块内"))))
+  
+  ;; 复制整个代码块（包括标识符）
+  (defun my/copy-org-entire-src-block ()
+    "复制整个代码块，包括 #+BEGIN_SRC 和 #+END_SRC"
+    (interactive)
+    (when (org-in-src-block-p)
+      (let* ((element (org-element-at-point))
+             (begin (org-element-property :begin element))
+             (end (org-element-property :end element))
+             (content (buffer-substring-no-properties begin end)))
+        (kill-new content)
+        (message "已复制整个代码块到剪贴板"))
+      (unless (org-in-src-block-p)
+        (message "光标不在代码块内"))))
+  
+  ;; 快速选择代码块内容（用于手动复制）
+  (defun my/select-org-src-block-content ()
+    "选择当前代码块的内容"
+    (interactive)
+    (when (org-in-src-block-p)
+      (let ((element (org-element-at-point)))
+        (goto-char (org-element-property :post-affiliated element))
+        (forward-line 1) ; 跳过 #+BEGIN_SRC 行
+        (set-mark (point))
+        (goto-char (org-element-property :end element))
+        (when (re-search-backward "^[ \t]*#\\+END_SRC" nil t)
+          ;; 移动到 #+END_SRC 行的前一行末尾
+          (forward-line -1)
+          (end-of-line)
+          (activate-mark)
+          (message "已选择代码块内容")))
+      (unless (org-in-src-block-p)
+        (message "光标不在代码块内"))))
+  
+  ;; ===== 代码块复制功能结束 =====
 
   ;; 配置 org-babel
   (org-babel-do-load-languages
@@ -433,10 +509,12 @@
   ;; 设置省略号样式和标题对齐
   (setq org-ellipsis " ⤵ ")
   (set-face-attribute 'org-ellipsis nil :foreground "#E6DC88")
-  (set-face-attribute 'org-level-1 nil :height 1.2 :weight 'bold)
-  (set-face-attribute 'org-level-2 nil :height 1.1 :weight 'bold)
-  (set-face-attribute 'org-level-3 nil :height 1.0 :weight 'bold)
-  (set-face-attribute 'org-level-4 nil :height 1.0 :weight 'bold)
+  (set-face-attribute 'org-level-1 nil :height 1.2 :weight 'normal)
+  (set-face-attribute 'org-level-2 nil :height 1.1 :weight 'normal)
+  (set-face-attribute 'org-level-3 nil :height 1.0 :weight 'normal)
+  (set-face-attribute 'org-level-4 nil :height 1.0 :weight 'normal)
+  (set-face-attribute 'org-level-5 nil :height 1.0 :weight 'normal)
+  (set-face-attribute 'org-level-6 nil :height 1.0 :weight 'normal)
   ;; 你可以根据需要继续设置 org-level-5 等
   :bind
   (("C-c a" . org-agenda)                 ; 打开议程视图
@@ -447,7 +525,10 @@
    ("C-c C-c" . org-babel-execute-src-block) ; 执行代码块
    ("C-c o" . my/list-org-files)          ; 列出 org 文件
    ("C-c O" . my/open-org-file)           ; 打开 org 目录
-   ("C-c n" . my/create-org-file)))       ; 创建新的 org 文件
+   ("C-c n" . my/create-org-file)         ; 创建新的 org 文件
+   ("C-c y" . my/copy-org-src-block-content-only) ; 复制代码块内容
+   ("C-c Y" . my/copy-org-entire-src-block) ; 复制整个代码块
+   ("C-c s" . my/select-org-src-block-content))) ; 选择代码块内容
 
 ;; 添加 evil-org 配置
 (use-package evil-org
@@ -460,7 +541,12 @@
   ;; 修复 TAB 键行为
   (evil-define-key '(normal insert) evil-org-mode-map
     (kbd "<tab>") 'org-cycle
-    (kbd "TAB") 'org-cycle))
+    (kbd "TAB") 'org-cycle)
+  ;; 添加代码块复制的 Evil 快捷键
+  (evil-define-key 'normal evil-org-mode-map
+    "yc" 'my/copy-org-src-block-content-only  ; 复制代码块内容
+    "yC" 'my/copy-org-entire-src-block        ; 复制整个代码块
+    "vc" 'my/select-org-src-block-content))   ; 选择代码块内容 (visual mode)
 
 ;; 开启自动折行
 (setq truncate-lines nil)
