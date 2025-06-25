@@ -204,6 +204,11 @@
   "Reload init.el file"
   (interactive)
   (load-file user-init-file)
+  ;; 重新加载后，对所有已打开的 org-mode 缓冲区重新关闭行号显示
+  (dolist (buffer (buffer-list))
+    (with-current-buffer buffer
+      (when (derived-mode-p 'org-mode)
+        (display-line-numbers-mode -1))))
   (message "Reloaded init.el"))
 (global-set-key (kbd "C-c r") 'reload-init-file)
 
