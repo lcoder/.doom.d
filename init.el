@@ -81,6 +81,13 @@
   (setq-default evil-escape-key-sequence "jk")
   (setq-default evil-escape-delay 0.2))
 
+;; 下划线作为单词字符
+(defadvice evil-inner-word (around underscore-as-word activate)
+  (let ((table (copy-syntax-table (syntax-table))))
+    (modify-syntax-entry ?_ "w" table)
+    (with-syntax-table table
+      ad-do-it)))
+
 (use-package undo-tree
   :ensure t
   :after evil
