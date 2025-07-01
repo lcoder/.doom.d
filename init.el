@@ -178,7 +178,9 @@
         (disable-theme 'doom-one)
         (load-theme 'doom-one-light t))
     (disable-theme 'doom-one-light)
-    (load-theme 'doom-one t)))
+    (load-theme 'doom-one t))
+  ;; 切换主题后自动更新org标题颜色
+  (my/set-org-heading-colors))
 ;; 绑定到快捷键 (例如 F5)
 (global-set-key (kbd "<f5>") 'toggle-dark-light-theme)
 
@@ -546,13 +548,29 @@
   ;; 设置省略号样式和标题对齐
   (setq org-ellipsis " ⤵ ")
   (set-face-attribute 'org-ellipsis nil :foreground "#E6DC88")
-  (set-face-attribute 'org-level-1 nil :height 1.2 :weight 'normal)
-  (set-face-attribute 'org-level-2 nil :height 1.1 :weight 'normal)
-  (set-face-attribute 'org-level-3 nil :height 1.0 :weight 'normal)
-  (set-face-attribute 'org-level-4 nil :height 1.0 :weight 'normal)
-  (set-face-attribute 'org-level-5 nil :height 1.0 :weight 'normal)
-  (set-face-attribute 'org-level-6 nil :height 1.0 :weight 'normal)
-  ;; 你可以根据需要继续设置 org-level-5 等
+  ;; 智能标题配色函数
+  (defun my/set-org-heading-colors ()
+    "根据当前主题设置org标题颜色"
+    (if (eq (car custom-enabled-themes) 'doom-one-light)
+        ;; 白天模式 - 使用深色高对比度
+        (progn
+          (set-face-attribute 'org-level-1 nil :height 1.2 :weight 'normal :foreground "#2563eb")  ; 深蓝色
+          (set-face-attribute 'org-level-2 nil :height 1.1 :weight 'normal :foreground "#7c3aed")  ; 深紫色
+          (set-face-attribute 'org-level-3 nil :height 1.0 :weight 'normal :foreground "#c026d3")  ; 深品红
+          (set-face-attribute 'org-level-4 nil :height 1.0 :weight 'normal :foreground "#dc2626")  ; 深红色
+          (set-face-attribute 'org-level-5 nil :height 1.0 :weight 'normal :foreground "#ea580c")  ; 深橙色
+          (set-face-attribute 'org-level-6 nil :height 1.0 :weight 'normal :foreground "#ca8a04"))  ; 深黄色
+      ;; 夜间模式 - 使用柔和低对比度
+      (progn
+        (set-face-attribute 'org-level-1 nil :height 1.2 :weight 'normal :foreground "#6ba3e6")  ; 清新蓝色
+        (set-face-attribute 'org-level-2 nil :height 1.1 :weight 'normal :foreground "#8a9bf7")  ; 淡蓝紫色
+        (set-face-attribute 'org-level-3 nil :height 1.0 :weight 'normal :foreground "#b395e8")  ; 柔和紫色
+        (set-face-attribute 'org-level-4 nil :height 1.0 :weight 'normal :foreground "#d698d4")  ; 淡紫粉色
+        (set-face-attribute 'org-level-5 nil :height 1.0 :weight 'normal :foreground "#e6a8b3")  ; 温暖粉色
+        (set-face-attribute 'org-level-6 nil :height 1.0 :weight 'normal :foreground "#f0ba92"))))  ; 柔和橙色
+  
+  ;; 初始设置标题颜色
+  (my/set-org-heading-colors)
   :bind
   (("C-c a" . org-agenda)                 ; 打开议程视图
    ("C-c c" . org-capture)                ; 快速捕获
