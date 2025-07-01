@@ -27,6 +27,7 @@
   :init
   (setq evil-want-integration t) ;; This is optional since it's already set to t by default.
   (setq evil-want-keybinding nil)
+  (setq evil-want-C-u-scroll t)
   :config
   (evil-mode 1)
   ;; 在 evil normal 状态下绑定lsp-bridge相关快捷键
