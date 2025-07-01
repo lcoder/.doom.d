@@ -399,8 +399,32 @@
      (shell . t)
      (sql . t)
      (js . t)
-     (rust . t)))
+     (rust . t)
+     (lisp . t)))
    (setq org-confirm-babel-evaluate nil)   ; 不询问是否执行代码块
+   
+   ;; 设置 Common Lisp 代码块的默认参数
+   ;; 自定义简单的 Common Lisp 执行函数
+   (defun org-babel-execute:lisp (body params)
+     "Execute Common Lisp code using sbcl directly."
+     (let* ((tmp-file (org-babel-temp-file "lisp-"))
+            (cmd (format "sbcl --script %s" tmp-file))
+            (result "")
+            ;; 包装代码以确保输出结果
+            (wrapped-body (format "(let ((result (progn %s)))\n  (format t \"~A~%%\" result))" body)))
+       ;; 写入包装后的代码到临时文件
+       (with-temp-file tmp-file
+         (insert wrapped-body))
+       ;; 执行并获取结果
+       (with-temp-buffer
+         (let ((exit-code (call-process-shell-command cmd nil t)))
+           (setq result (buffer-string))
+           (when (/= exit-code 0)
+             (setq result (format "错误: %s" result)))))
+       ;; 清理临时文件
+       (delete-file tmp-file)
+       ;; 返回结果，去掉多余的换行符
+       (string-trim result)))
     ;; 设置 Rust 代码块的默认参数
     (setq org-babel-default-header-args:rust '((:results . "output")
                                               (:session . "*Rust*")
@@ -582,12 +606,12 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(package-selected-packages
-   '(bing-dict company counsel-projectile default-text-scale
-	       doom-themes emojify evil-collection evil-embrace
-	       evil-escape evil-org evil-textobj-entire ivy-rich
-	       lsp-ui rg rustic sdcv transpose-frame
-	       treemacs-all-the-icons treemacs-evil
-	       treemacs-projectile undo-tree valign vterm)))
+   '(bing-dict company counsel-projectile default-text-scale doom-themes
+	       emojify evil-collection evil-embrace evil-escape
+	       evil-org evil-textobj-entire ivy-rich lsp-ui rg rustic
+	       sdcv slime transpose-frame treemacs-all-the-icons
+	       treemacs-evil treemacs-projectile undo-tree valign
+	       vterm)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
