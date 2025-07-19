@@ -272,6 +272,10 @@
   (setq org-todo-keywords
         '((sequence "TODO(t)" "IN-PROGRESS(i)" "WAITING(w)" "|" "DONE(d)" "CANCELLED(c)")))
   
+  ;; 列表折叠设置 - 将列表视为标题
+  (setq org-cycle-include-plain-lists 'integrate)  ; 列表项可以像标题一样折叠
+  (setq org-list-allow-alphabetical t)           ; 允许字母编号的列表
+  
   ;; ===== 新增：快速打开 org 文件的功能 =====
   
   ;; 定义 org 文件目录
