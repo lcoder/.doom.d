@@ -162,7 +162,53 @@
 
 ;; 终端
 (use-package vterm
-  :defer t)  ;; 延迟加载，直到实际需要时
+  :defer t  ;; 延迟加载，直到实际需要时
+  :config
+  ;; 设置 vterm 缓冲区名称
+  (setq vterm-buffer-name-string "vterm %s")
+  ;; 设置 vterm 最大缓冲区数量
+  (setq vterm-max-scrollback 10000)
+  ;; 启用 vterm 模块
+  (setq vterm-module-cmake-args "-DUSE_SYSTEM_LIBVTERM=no")
+  ;; 设置 shell 路径（可选，使用系统默认）
+  ;; (setq vterm-shell "/bin/zsh")
+  :bind (("C-c t" . vterm)))  ;; 绑定 C-c t 快捷键打开 vterm
+
+;; vterm-toggle 配置 - 提供更好的终端切换体验
+(use-package vterm-toggle
+  :after vterm
+  :ensure t
+  :config
+  ;; 设置 vterm 窗口高度
+  (setq vterm-toggle-fullscreen-p nil)
+  (setq vterm-toggle-scope 'project)
+  ;; 设置 vterm 窗口位置
+  (setq vterm-toggle-position 'bottom)
+  ;; 设置 vterm 窗口高度比例
+  (setq vterm-toggle-hide-method 'reset-window-configuration)
+  :bind (("C-c T" . vterm-toggle)))  ;; 绑定 C-c T 来切换 vterm
+
+;; 确保 vterm 模式使用 evil 键绑定
+(add-to-list 'evil-collection-mode-list 'vterm-mode)
+
+;; 自定义 vterm 的 evil 键绑定
+(defun my/vterm-evil-setup ()
+  "设置 vterm 的 evil 键绑定"
+  (when (derived-mode-p 'vterm-mode)
+    ;; 在 vterm 中禁用 evil 的插入模式，直接进入终端模式
+    (evil-emacs-state)
+    ;; 禁用行号显示
+    (display-line-numbers-mode -1)
+    ;; 设置一些有用的键绑定
+    (local-set-key (kbd "C-c C-c") 'vterm-send-C-c)
+    (local-set-key (kbd "C-c C-z") 'vterm-send-C-z)
+    (local-set-key (kbd "C-c C-d") 'vterm-send-C-d)
+    ;; 允许使用 C-n/C-p 进行历史导航
+    (local-set-key (kbd "C-n") 'vterm-send-down)
+    (local-set-key (kbd "C-p") 'vterm-send-up)))
+
+;; 为 vterm 模式添加钩子
+(add-hook 'vterm-mode-hook 'my/vterm-evil-setup)
 
 ;; 主题
 (use-package doom-themes
@@ -633,7 +679,7 @@
 	       evil-org evil-textobj-entire ivy-rich lsp-ui rg rustic
 	       sdcv slime transpose-frame treemacs-all-the-icons
 	       treemacs-evil treemacs-projectile undo-tree valign
-	       vterm)))
+	       vterm vterm-toggle)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
