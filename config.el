@@ -54,11 +54,13 @@
         (setq dw/command-window-frame nil))
     (progn
       (global-command-log-mode t)
-      (with-current-buffer
-          (setq clm/command-log-buffer (get-buffer-create " *command-log*"))
-        (text-scale-set -1))
-      (let* ((cols 38)
-             (lines 5)
+      (setq clm/command-log-buffer (get-buffer-create " *command-log*"))
+      (with-current-buffer clm/command-log-buffer
+        (setq-local face-remapping-alist
+                    (cons '(default :height 120)
+                          face-remapping-alist)))
+      (let* ((cols 35)
+             (lines 4)
              (border 2)
              (cw (frame-char-width))
              (ch (frame-char-height))
