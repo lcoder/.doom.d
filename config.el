@@ -40,7 +40,7 @@
 
 
 ;; Source Code Pro ;; Menlo ;; Source Code Pro ;; SF Mono ;; Sarasa Term SC Nerd
-(setq doom-font (font-spec :family "Sarasa Term SC Nerd" :size 15))
+(setq doom-font (font-spec :family "FiraCode Nerd Font" :size 15))
 
 ;; --- start of 展示当前key的日志 ---
 (defvar dw/command-window-frame nil)
@@ -91,7 +91,11 @@
 (after! org
   (setq org-ellipsis " ⤵")
   (custom-set-faces
-      '(org-ellipsis ((t (:foreground "#E6DC88"))))))
+      '(org-ellipsis ((t (:foreground "#E6DC88")))))
+  ;; org-mode 使用 Sarasa Term SC Nerd，其他模式保持默认 FiraCode Nerd Font
+  (add-hook 'org-mode-hook
+            (lambda ()
+              (face-remap-add-relative 'default :family "Sarasa Term SC Nerd"))))
 
 ;; 改用这个 jk -> esc
 ;; 参考：https://emacs-china.org/t/evil-mode-insert-mode-emacs-easy-c-n-c-p/22512/11
