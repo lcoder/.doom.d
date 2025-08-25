@@ -107,12 +107,18 @@
 
 (use-package! treesit-auto :config (global-treesit-auto-mode))
 
+;; 针对 tailwindcss 的 lsp 配置（暂时不可用）
 (use-package! lsp-tailwindcss
   :after lsp-mode
   :init
-  (setq lsp-tailwindcss-add-on-mode t)
+  ;; 关闭 add-on 模式，避免初始化时修改其他客户端的 completion 导致报错
+  (setq lsp-tailwindcss-add-on-mode nil)
   :config
   (setq lsp-tailwindcss-major-modes '(tsx-ts-mode typescript-ts-mode typescript-tsx-mode html-mode web-mode css-mode)))
+;; 保险起见：覆盖有问题的初始化 hack（某些 server 不返回 completionProvider 时会触发）
+(after! lsp-tailwindcss
+  (when (fboundp 'lsp-tailwindcss--company-dash-hack)
+    (advice-add 'lsp-tailwindcss--company-dash-hack :override #'ignore)))
 
 ;; 针对前端项目 自动开启lsp-mode
 (dolist (hook '(typescript-ts-mode-local-vars-hook
@@ -120,6 +126,15 @@
                 js-ts-mode-local-vars-hook
                 json-ts-mode-local-vars-hook))
   (add-hook hook #'lsp!))
+
+;; 默认同意监视大型项目（抑制“watch all files”提示）
+;; Watching all the files in /foo would require adding watches to 3792 directories, so watching the repo may slow Emacs down. Do you want to watch all files in /foo? (y or n) n
+(after! lsp-mode
+  (dolist (dir '("[/\\\\]dist\\'"
+                 "[/\\\\]build\\'"))
+    (add-to-list 'lsp-file-watch-ignored-directories dir))
+  (setq lsp-warn-project-dir-watchers-too-many nil
+        lsp-file-watch-threshold 6000))
 
 ;; Whenever you reconfigure a package, make sure to wrap your config in an
 ;; `after!' block, otherwise Doom's defaults may override your settings. E.g.
