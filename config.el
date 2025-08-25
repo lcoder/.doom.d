@@ -105,12 +105,14 @@
   (delete 'visual evil-escape-excluded-states)
   (setq-default evil-escape-key-sequence "jk"))
 
+(use-package! treesit-auto :config (global-treesit-auto-mode))
+
 (use-package! lsp-tailwindcss
   :after lsp-mode
   :init
-  (setq lsp-tailwindcss-add-on-mode t))
-
-(use-package! treesit-auto :config (global-treesit-auto-mode))
+  (setq lsp-tailwindcss-add-on-mode t)
+  :config
+  (setq lsp-tailwindcss-major-modes '(tsx-ts-mode typescript-ts-mode typescript-tsx-mode html-mode web-mode css-mode)))
 
 ;; Whenever you reconfigure a package, make sure to wrap your config in an
 ;; `after!' block, otherwise Doom's defaults may override your settings. E.g.
