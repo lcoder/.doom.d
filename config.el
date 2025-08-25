@@ -114,6 +114,13 @@
   :config
   (setq lsp-tailwindcss-major-modes '(tsx-ts-mode typescript-ts-mode typescript-tsx-mode html-mode web-mode css-mode)))
 
+;; 针对前端项目 自动开启lsp-mode
+(dolist (hook '(typescript-ts-mode-local-vars-hook
+                tsx-ts-mode-local-vars-hook
+                js-ts-mode-local-vars-hook
+                json-ts-mode-local-vars-hook))
+  (add-hook hook #'lsp!))
+
 ;; Whenever you reconfigure a package, make sure to wrap your config in an
 ;; `after!' block, otherwise Doom's defaults may override your settings. E.g.
 ;;
