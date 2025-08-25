@@ -53,6 +53,4 @@
 (package! command-log-mode)
 ;; --- end of 展示当前key的日志 ---
 
-(package! lsp-tailwindcss :recipe (:host github :repo "merrickluo/lsp-tailwindcss"))
-
 (package! treesit-auto)

@@ -107,19 +107,6 @@
 
 (use-package! treesit-auto :config (global-treesit-auto-mode))
 
-;; 针对 tailwindcss 的 lsp 配置（暂时不可用）
-(use-package! lsp-tailwindcss
-  :after lsp-mode
-  :init
-  ;; 关闭 add-on 模式，避免初始化时修改其他客户端的 completion 导致报错
-  (setq lsp-tailwindcss-add-on-mode nil)
-  :config
-  (setq lsp-tailwindcss-major-modes '(tsx-ts-mode typescript-ts-mode typescript-tsx-mode html-mode web-mode css-mode)))
-;; 保险起见：覆盖有问题的初始化 hack（某些 server 不返回 completionProvider 时会触发）
-(after! lsp-tailwindcss
-  (when (fboundp 'lsp-tailwindcss--company-dash-hack)
-    (advice-add 'lsp-tailwindcss--company-dash-hack :override #'ignore)))
-
 ;; 针对前端项目 自动开启lsp-mode
 (dolist (hook '(typescript-ts-mode-local-vars-hook
                 tsx-ts-mode-local-vars-hook
