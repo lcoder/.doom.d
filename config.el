@@ -117,8 +117,9 @@
 ;; 默认同意监视大型项目（抑制“watch all files”提示）
 ;; Watching all the files in /foo would require adding watches to 3792 directories, so watching the repo may slow Emacs down. Do you want to watch all files in /foo? (y or n) n
 (after! lsp-mode
-  (dolist (dir '("[/\\\\]dist\\'"
-                 "[/\\\\]build\\'"))
+  (dolist (dir '("[/\\]dist\'"
+                 "[/\\]build\'"
+                 "[/\\]target\'"))
     (add-to-list 'lsp-file-watch-ignored-directories dir))
   (setq lsp-warn-project-dir-watchers-too-many nil
         lsp-file-watch-threshold 6000))
@@ -133,6 +134,8 @@
 ;; 自动跟踪当前buffer
 (after! treemacs
   (treemacs-project-follow-mode 1))
+
+(setq lsp-log-io t)
 
 ;; Whenever you reconfigure a package, make sure to wrap your config in an
 ;; `after!' block, otherwise Doom's defaults may override your settings. E.g.
