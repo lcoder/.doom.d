@@ -140,6 +140,9 @@
 (after! treemacs
   (treemacs-project-follow-mode 1))
 
+;; 修改下划线为单词字符
+(modify-syntax-entry ?_ "w")
+
 ;; Whenever you reconfigure a package, make sure to wrap your config in an
 ;; `after!' block, otherwise Doom's defaults may override your settings. E.g.
 ;;
