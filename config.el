@@ -123,6 +123,17 @@
   (setq lsp-warn-project-dir-watchers-too-many nil
         lsp-file-watch-threshold 6000))
 
+;; 添加项目搜索目录
+(after! projectile
+  (when (file-exists-p "~/.config/doom/local.el")
+    (load! "local"))
+  (unless projectile-project-search-path
+    (setq projectile-project-search-path '("~/workspace/")))) ;; 默认项目搜索路径
+
+;; 自动跟踪当前buffer
+(after! treemacs
+  (treemacs-project-follow-mode 1))
+
 ;; Whenever you reconfigure a package, make sure to wrap your config in an
 ;; `after!' block, otherwise Doom's defaults may override your settings. E.g.
 ;;
