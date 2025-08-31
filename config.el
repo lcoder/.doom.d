@@ -114,16 +114,6 @@
                 json-ts-mode-local-vars-hook))
   (add-hook hook #'lsp!))
 
-;; 默认同意监视大型项目（抑制“watch all files”提示）
-;; Watching all the files in /foo would require adding watches to 3792 directories, so watching the repo may slow Emacs down. Do you want to watch all files in /foo? (y or n) n
-(after! lsp-mode
-  (dolist (dir '("[/\\]dist\'"
-                 "[/\\]build\'"
-                 "[/\\]target\'"))
-    (add-to-list 'lsp-file-watch-ignored-directories dir))
-  (setq lsp-warn-project-dir-watchers-too-many nil
-        lsp-file-watch-threshold 6000))
-
 ;; 添加项目搜索目录
 (after! projectile
   (when (file-exists-p "~/.config/doom/local.el")
@@ -135,6 +125,7 @@
 (after! treemacs
   (treemacs-project-follow-mode 1))
 
+;; 自动打印 LSP 日志
 (setq lsp-log-io t)
 
 ;; Whenever you reconfigure a package, make sure to wrap your config in an
