@@ -107,12 +107,27 @@
 
 (use-package! treesit-auto :config (global-treesit-auto-mode))
 
-;; 针对前端项目 自动开启lsp-mode
+;; 针对前端项目 自动开启lsp
 (dolist (hook '(typescript-ts-mode-local-vars-hook
                 tsx-ts-mode-local-vars-hook
                 js-ts-mode-local-vars-hook
-                json-ts-mode-local-vars-hook))
+                json-ts-mode-local-vars-hook
+                ;; 兼容未进 ts-mode 时的回退模式
+                typescript-mode-local-vars-hook
+                js-mode-local-vars-hook
+                json-mode-local-vars-hook
+                web-mode-local-vars-hook))
   (add-hook hook #'lsp!))
+
+;; 默认同意监视大型项目（抑制“watch all files”提示）
+;; Watching all the files in /foo would require adding watches to 3792 directories, so watching the repo may slow Emacs down. Do you want to watch all files in /foo? (y or n) n
+(after! lsp-mode
+  (dolist (dir '("[/\\]dist\'"
+                 "[/\\]build\'"
+                 "[/\\]target\'"))
+    (add-to-list 'lsp-file-watch-ignored-directories dir))
+  (setq lsp-warn-project-dir-watchers-too-many nil
+        lsp-file-watch-threshold 6000))
 
 ;; 添加项目搜索目录
 (after! projectile
@@ -124,9 +139,6 @@
 ;; 自动跟踪当前buffer
 (after! treemacs
   (treemacs-project-follow-mode 1))
-
-;; 自动打印 LSP 日志
-(setq lsp-log-io t)
 
 ;; Whenever you reconfigure a package, make sure to wrap your config in an
 ;; `after!' block, otherwise Doom's defaults may override your settings. E.g.
