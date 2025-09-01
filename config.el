@@ -150,6 +150,20 @@
 ;; 修改下划线为单词字符
 (modify-syntax-entry ?_ "w")
 
+;; vterm 字符 自动贴左
+(after! vterm
+  (defun my/vterm-stick-left ()
+    (setq-local auto-hscroll-mode nil
+                hscroll-margin 0
+                truncate-lines t)
+    (set-window-hscroll (selected-window) 0))
+  (add-hook 'vterm-mode-hook #'my/vterm-stick-left))
+;; vterm放大/缩小时也强制贴左
+(defun my/vterm-reset-hscroll (&rest _)
+  (when (derived-mode-p 'vterm-mode)
+    (set-window-hscroll (selected-window) 0)))
+(advice-add 'text-scale-adjust :after #'my/vterm-reset-hscroll)
+
 ;; Whenever you reconfigure a package, make sure to wrap your config in an
 ;; `after!' block, otherwise Doom's defaults may override your settings. E.g.
 ;;
