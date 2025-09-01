@@ -42,6 +42,13 @@
 ;; Source Code Pro ;; Menlo ;; Source Code Pro ;; SF Mono ;; Sarasa Term SC Nerd
 (setq doom-font (font-spec :family "FiraCode Nerd Font" :size 15))
 
+;; smartSelect: Alt+o 扩大选区, Alt+p 缩小选区（全局）
+(use-package! expand-region
+  :commands (er/expand-region er/contract-region)
+  :init
+  (map! :nvi "M-o" #'er/expand-region
+        :nvi "M-p" #'er/contract-region))
+
 ;; --- start of 展示当前key的日志 ---
 (defvar dw/command-window-frame nil)
 (defun dw/toggle-command-window ()

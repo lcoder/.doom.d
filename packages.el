@@ -54,3 +54,6 @@
 ;; --- end of 展示当前key的日志 ---
 
 (package! treesit-auto)
+
+;; Smart select expand/shrink
+(package! expand-region)
