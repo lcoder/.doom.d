@@ -56,4 +56,4 @@
 (package! treesit-auto)
 
 ;; Smart select expand/shrink
-(package! expand-region)
+(package! expreg)

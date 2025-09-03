@@ -43,11 +43,25 @@
 (setq doom-font (font-spec :family "FiraCode Nerd Font" :size 15))
 
 ;; smartSelect: Alt+o 扩大选区, Alt+p 缩小选区（全局）
-(use-package! expand-region
-  :commands (er/expand-region er/contract-region)
+(use-package! expreg
+  :commands (expreg-expand expreg-contract)
   :init
-  (map! :nvi "M-o" #'er/expand-region
-        :nvi "M-p" #'er/contract-region))
+  (map! :nvi "M-o" #'expreg-expand
+        :nvi "M-p" #'expreg-contract)
+  ;; 仅在文本类模式启用句子级扩选（官方建议）
+  (after! expreg
+    (defun my/enable-expreg-sentence-in-text-mode ()
+      (make-local-variable 'expreg-functions)
+      (add-to-list 'expreg-functions #'expreg--sentence))
+    (add-hook 'text-mode-hook #'my/enable-expreg-sentence-in-text-mode))
+  ;; 在 rustic-mode 中确保存在 rust 的 tree-sitter 解析器(为了配合expreg扩展使用，利用treesit的语法树)
+  (after! rustic
+    (defun my/rustic-ensure-treesit-parser ()
+      (when (and (treesit-available-p)
+                 (treesit-language-available-p 'rust)
+                 (null (treesit-parser-list)))
+        (ignore-errors (treesit-parser-create 'rust))))
+    (add-hook 'rustic-mode-hook #'my/rustic-ensure-treesit-parser)))
 
 ;; --- start of 展示当前key的日志 ---
 (defvar dw/command-window-frame nil)
