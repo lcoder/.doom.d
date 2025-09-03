@@ -118,6 +118,19 @@
             (lambda ()
               (face-remap-add-relative 'default :family "Sarasa Term SC Nerd"))))
 
+;; 更简洁：基于主题设置，仅改字重，继承 outline-N 以保留颜色等样式
+(after! org
+  (custom-theme-set-faces! 'user
+    '(org-document-title :weight normal)
+    '(org-level-1 :inherit outline-1 :weight normal)
+    '(org-level-2 :inherit outline-2 :weight normal)
+    '(org-level-3 :inherit outline-3 :weight normal)
+    '(org-level-4 :inherit outline-4 :weight normal)
+    '(org-level-5 :inherit outline-5 :weight normal)
+    '(org-level-6 :inherit outline-6 :weight normal)
+    '(org-level-7 :inherit outline-7 :weight normal)
+    '(org-level-8 :inherit outline-8 :weight normal)))
+
 ;; 改用这个 jk -> esc
 ;; 参考：https://emacs-china.org/t/evil-mode-insert-mode-emacs-easy-c-n-c-p/22512/11
 (after! evil-escape
