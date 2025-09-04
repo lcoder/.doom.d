@@ -112,7 +112,7 @@
 (after! org
   (setq org-ellipsis " ⤵")
   (custom-set-faces
-      '(org-ellipsis ((t (:foreground "#E6DC88")))))
+   '(org-ellipsis ((t (:foreground "#E6DC88")))))
   ;; org-mode 使用 Sarasa Term SC Nerd，其他模式保持默认 FiraCode Nerd Font
   (add-hook 'org-mode-hook
             (lambda ()
@@ -139,7 +139,11 @@
   (delete 'visual evil-escape-excluded-states)
   (setq-default evil-escape-key-sequence "jk"))
 
-(use-package! treesit-auto :config (global-treesit-auto-mode))
+;; treesit
+(use-package! treesit-auto
+  :config
+  (setq treesit-auto-install 'prompt)
+  (global-treesit-auto-mode))
 
 ;; 针对前端项目 自动开启lsp
 (dolist (hook '(typescript-ts-mode-local-vars-hook
