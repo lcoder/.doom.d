@@ -195,6 +195,37 @@
     (set-window-hscroll (selected-window) 0)))
 (advice-add 'text-scale-adjust :after #'my/vterm-reset-hscroll)
 
+;; 启用基础词库
+(use-package! pyim-basedict
+  :config
+  (pyim-basedict-enable))
+
+;; pyim
+(after! pyim
+  (setq default-input-method "pyim")
+  (setq pyim-page-tooltip 'posframe)
+  (setq pyim-page-length 8)
+  (setq pyim-cloudim 'baidu)
+  (setq pyim-default-scheme 'quanpin)
+  ;; 模糊拼音
+  (setq pyim-pinyin-fuzzy-alist
+        '(("en" "eng")
+          ("in" "ing")
+          ("an" "ang")
+          ("ian" "iang")
+          ("uan" "uang")
+          ("c" "ch")
+          ("s" "sh")
+          ("z" "zh")
+          ("l" "n")))
+  ;; 使用半角标点（自动）
+  (setq-default pyim-punctuation-translate-p '(auto))
+  (setq-default pyim-punctuation-half-width-functions
+                ;; 行首强制输入半角标点
+                '(pyim-probe-punctuation-line-beginning
+                  ;; 半角标点后强制输入半角标点
+                  pyim-probe-punctuation-after-punctuation)))
+
 ;; Whenever you reconfigure a package, make sure to wrap your config in an
 ;; `after!' block, otherwise Doom's defaults may override your settings. E.g.
 ;;

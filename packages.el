@@ -57,3 +57,6 @@
 
 ;; Smart select expand/shrink
 (package! expreg)
+
+;; pyim 基础词库
+(package! pyim-basedict)
