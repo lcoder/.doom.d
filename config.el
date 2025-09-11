@@ -224,7 +224,12 @@
                 ;; 行首强制输入半角标点
                 '(pyim-probe-punctuation-line-beginning
                   ;; 半角标点后强制输入半角标点
-                  pyim-probe-punctuation-after-punctuation)))
+                  pyim-probe-punctuation-after-punctuation))
+  ;; pyim: 使用 "." / "," 翻页候选
+  (define-key pyim-mode-map "." #'pyim-page-next-page)
+  (define-key pyim-mode-map "," #'pyim-page-previous-page)
+  ;; 临时切换中英文
+  (global-set-key (kbd "C-.") 'pyim-toggle-input-ascii))
 
 ;; Whenever you reconfigure a package, make sure to wrap your config in an
 ;; `after!' block, otherwise Doom's defaults may override your settings. E.g.

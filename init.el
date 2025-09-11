@@ -90,7 +90,7 @@
        ;;ansible
        ;;biblio            ; Writes a PhD for you (citation needed)
        ;;collab            ; buffers with friends
-       ;;debugger          ; FIXME stepping through code, to help you add bugs
+       ;;debugger          ; FIXME stepping through code, to help you add bugs，可以参考：https://users.rust-lang.org/t/debugging-in-emacs-doom/99540
        ;;direnv
        ;;docker
        ;;editorconfig      ; let someone else argue about tabs vs spaces
