@@ -58,5 +58,6 @@
 ;; Smart select expand/shrink
 (package! expreg)
 
-;; pyim 基础词库
-(package! pyim-basedict)
+;; pyim 大词库（约 330 万词条，体积较大）
+(package! pyim-greatdict
+  :recipe (:host github :repo "tumashu/pyim-greatdict"))

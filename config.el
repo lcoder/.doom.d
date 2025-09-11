@@ -195,10 +195,10 @@
     (set-window-hscroll (selected-window) 0)))
 (advice-add 'text-scale-adjust :after #'my/vterm-reset-hscroll)
 
-;; 启用基础词库
-(use-package! pyim-basedict
+;; 启用 pyim-greatdict 词库
+(use-package! pyim-greatdict
   :config
-  (pyim-basedict-enable))
+  (pyim-greatdict-enable))
 
 ;; pyim
 (after! pyim
