@@ -231,6 +231,12 @@
 (after! evil
   (define-key evil-insert-state-map (kbd "C-.") #'pyim-toggle-input-ascii))
 
+;; org roam https://www.skfwe.cn/p/org-roam-%E4%BD%BF%E7%94%A8/
+;; org roam pr: https://github.com/doomemacs/doomemacs/pull/5271/files
+(use-package! org-roam
+  :config
+  (setq org-roam-directory (expand-file-name "roam")))
+
 ;; Whenever you reconfigure a package, make sure to wrap your config in an
 ;; `after!' block, otherwise Doom's defaults may override your settings. E.g.
 ;;
