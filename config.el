@@ -116,7 +116,8 @@
   ;; org-mode 使用 Sarasa Term SC Nerd，其他模式保持默认 FiraCode Nerd Font
   (add-hook 'org-mode-hook
             (lambda ()
-              (face-remap-add-relative 'default :family "Sarasa Term SC Nerd"))))
+              (face-remap-add-relative 'default :family "Sarasa Term SC Nerd")
+              (set-fontset-font t 'han (font-spec :family "Sarasa Term SC Nerd") nil 'prepend))))
 
 ;; 更简洁：基于主题设置，仅改字重，继承 outline-N 以保留颜色等样式
 (after! org
