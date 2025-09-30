@@ -42,6 +42,9 @@
 ;; Source Code Pro ;; Menlo ;; Source Code Pro ;; SF Mono ;; Sarasa Term SC Nerd
 (setq doom-font (font-spec :family "FiraCode Nerd Font" :size 15))
 
+;; 通用小优化：禁用双向文本重排，降低重绘开销（不编辑 RTL 语言时安全）
+(setq-default bidi-paragraph-direction 'left-to-right)
+
 ;; smartSelect: Alt+o 扩大选区, Alt+p 缩小选区（全局）
 (use-package! expreg
   :commands (expreg-expand expreg-contract)
