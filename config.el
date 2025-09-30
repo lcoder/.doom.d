@@ -144,7 +144,8 @@
 (use-package! treesit-auto
   :config
   (setq treesit-auto-install 'prompt)
-  (global-treesit-auto-mode))
+  (global-treesit-auto-mode -1)
+  (add-hook 'prog-mode-hook #'treesit-auto-mode))
 
 ;; 针对前端项目 自动开启lsp
 (dolist (hook '(typescript-ts-mode-local-vars-hook
