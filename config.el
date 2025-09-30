@@ -171,7 +171,12 @@
 
 ;; 自动跟踪当前buffer
 (after! treemacs
-  (treemacs-project-follow-mode 1))
+  (treemacs-follow-mode 1)
+  (add-hook 'treemacs-mode-hook
+            (lambda ()
+              (when (bound-and-true-p treemacs-project-follow-mode)
+                ;; 关闭treemacs自动切换项目
+                (treemacs-project-follow-mode -1)))))
 
 ;; 修改下划线为单词字符
 (modify-syntax-entry ?_ "w")
@@ -238,9 +243,7 @@
     '("rustfmt" "--edition" "2024")
     :modes '(rust-mode rustic-mode rust-ts-mode)))
 
-;; 关闭treemacs自动追踪
-(after! treemacs
-  (treemacs-project-follow-mode -1))
+;; 关闭treemacs自动追踪（已在前面 after! treemacs 中统一处理）
 ;; Whenever you reconfigure a package, make sure to wrap your config in an
 ;; `after!' block, otherwise Doom's defaults may override your settings. E.g.
 ;;
