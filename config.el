@@ -64,7 +64,9 @@
                  (treesit-language-available-p 'rust)
                  (null (treesit-parser-list)))
         (ignore-errors (treesit-parser-create 'rust))))
-    (add-hook 'rustic-mode-hook #'my/rustic-ensure-treesit-parser)))
+    (add-hook 'rustic-mode-hook #'my/rustic-ensure-treesit-parser)
+    ;; 设置 rustic-mode 的缩进为2个空格
+    (setq rustic-indent-offset 2)))
 
 ;; --- start of 展示当前key的日志 ---
 (defvar dw/command-window-frame nil)
@@ -114,6 +116,8 @@
 ;; ellipsis https://endlessparentheses.com/changing-the-org-mode-ellipsis.html
 (after! org
   (setq org-ellipsis " ⤵")
+  ;; 设置代码块默认缩进为2个空格
+  (setq org-edit-src-content-indentation 2)
   (custom-set-faces
    '(org-ellipsis ((t (:foreground "#E6DC88")))))
   ;; org-mode 使用 Sarasa Term SC Nerd，其他模式保持默认 FiraCode Nerd Font
