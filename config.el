@@ -45,6 +45,12 @@
 ;; 通用小优化：禁用双向文本重排，降低重绘开销（不编辑 RTL 语言时安全）
 (setq-default bidi-paragraph-direction 'left-to-right)
 
+;; 避免 Emacs 30 上 smartparens 的内部变量未初始化导致
+;; (void-variable smartparens-mode--suppress-set-explicitly) 报错：
+;; 提前加载 smartparens，确保其 minor-mode 正确定义
+(use-package! smartparens
+  :demand t)
+
 ;; smartSelect: Alt+o 扩大选区, Alt+p 缩小选区（全局）
 (use-package! expreg
   :commands (expreg-expand expreg-contract)
