@@ -205,18 +205,23 @@
     (set-window-hscroll (selected-window) 0)))
 (advice-add 'text-scale-adjust :after #'my/vterm-reset-hscroll)
 
-;; 启用 pyim-greatdict 词库
-(use-package! pyim-greatdict
-  :config
-  (pyim-greatdict-enable))
-
-;; pyim
+;; pyim（从零：先保证基础词库可用，再叠加清华词库）
+;;
+;; 用法：
+;; - `C-\\` 切换输入法（Emacs 默认键位）
+;; - 切到 pyim 后，输入 shuzu 应该能得到「数组」
 (after! pyim
-  (setq default-input-method "pyim")
-  (setq pyim-page-tooltip 'posframe)
-  (setq pyim-page-length 8)
-  (setq pyim-cloudim 'baidu)
-  (setq pyim-default-scheme 'quanpin)
+  (setq default-input-method "pyim"
+        pyim-default-scheme 'quanpin
+        ;; GUI 优先用 posframe；不行就回退到 minibuffer
+        pyim-page-tooltip '(posframe minibuffer)
+        pyim-page-length 5
+        ;; 性能/隐私：默认关云输入；关 buffer 搜词（容易卡）
+        pyim-cloudim nil
+        pyim-candidates-search-buffer-p nil)
+
+  ;; 标点：永远半角（包括中文注释）
+  (setq-default pyim-punctuation-translate-p '(no))
   ;; 模糊拼音
   (setq pyim-pinyin-fuzzy-alist
         '(("en" "eng")
@@ -228,18 +233,30 @@
           ("s" "sh")
           ("z" "zh")
           ("l" "n")))
-  ;; 使用半角标点（自动）
-  (setq-default pyim-punctuation-translate-p '(auto))
-  (setq-default pyim-punctuation-half-width-functions
-                ;; 行首强制输入半角标点
-                '(pyim-probe-punctuation-line-beginning
-                  ;; 半角标点后强制输入半角标点
-                  pyim-probe-punctuation-after-punctuation))
-  ;; 临时切换中英文
-  (define-key pyim-mode-map (kbd "C-.") 'pyim-toggle-input-ascii))
-;; 让插入态也能识别 C-.（即使某些情况下 pyim-mode-map 没挂上）
-(after! evil
-  (define-key evil-insert-state-map (kbd "C-.") #'pyim-toggle-input-ascii))
+  ;; 程序员友好：prog-mode 下默认英文，仅在注释/字符串里中文
+  (setq-default pyim-english-input-switch-functions
+                '(pyim-probe-program-mode
+                  pyim-probe-isearch-mode))
+  ;; 基础词库（优先保证常用词可用）
+  (when (require 'pyim-basedict nil t)
+    (pyim-basedict-enable))
+  ;; 清华词库（可选叠加）
+  (when (require 'pyim-tsinghua-dict nil t)
+    (require 'pyim-dict nil t)
+    (pyim-tsinghua-dict-enable))
+  ;; 不切输入法也能临时纯英文输入
+  (define-key pyim-mode-map (kbd "C-.") #'pyim-toggle-input-ascii))
+
+;; org 写中文：允许中文标点（不强制半角）
+(add-hook 'org-mode-hook
+          (lambda ()
+            ;; org 里更偏中文输入（isearch 时仍强制英文）
+            (setq-local pyim-english-input-switch-functions
+                        '(pyim-probe-isearch-mode))
+            ;; org 里中文标点自动（中文→全角，英文→半角）
+            (setq-local pyim-punctuation-translate-p '(auto))
+            ;; 取消“行首/标点后强制半角”的探针
+            (setq-local pyim-punctuation-half-width-functions nil)))
 
 ;; org roam https://www.skfwe.cn/p/org-roam-%E4%BD%BF%E7%94%A8/
 ;; org roam pr: https://github.com/doomemacs/doomemacs/pull/5271/files
