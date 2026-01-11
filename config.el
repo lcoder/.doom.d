@@ -221,7 +221,7 @@
         pyim-candidates-search-buffer-p nil)
 
   ;; 标点：永远半角（包括中文注释）
-  (setq-default pyim-punctuation-translate-p '(no))
+  (setq-default pyim-punctuation-translate-p '(auto))
   ;; 模糊拼音
   (setq pyim-pinyin-fuzzy-alist
         '(("en" "eng")
@@ -253,8 +253,6 @@
             ;; org 里更偏中文输入（isearch 时仍强制英文）
             (setq-local pyim-english-input-switch-functions
                         '(pyim-probe-isearch-mode))
-            ;; org 里中文标点自动（中文→全角，英文→半角）
-            (setq-local pyim-punctuation-translate-p '(auto))
             ;; 取消“行首/标点后强制半角”的探针
             (setq-local pyim-punctuation-half-width-functions nil)))
 
