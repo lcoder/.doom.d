@@ -215,7 +215,7 @@
         pyim-default-scheme 'quanpin
         ;; GUI 优先用 posframe；不行就回退到 minibuffer
         pyim-page-tooltip '(posframe minibuffer)
-        pyim-page-length 5
+        pyim-page-length 8
         ;; 性能/隐私：默认关云输入；关 buffer 搜词（容易卡）
         pyim-cloudim nil
         pyim-candidates-search-buffer-p nil)
