@@ -45,6 +45,11 @@
 ;; 通用小优化：禁用双向文本重排，降低重绘开销（不编辑 RTL 语言时安全）
 (setq-default bidi-paragraph-direction 'left-to-right)
 
+;; org 模式下启用 bidi 经常会导致崩溃，因此禁用
+;; 进一步规避 bidi 相关崩溃（如 bidi_pop_it / posn_at_point）
+(setq-default bidi-display-reordering nil)
+(setq-default bidi-inhibit-bpa t)
+
 ;; 避免 Emacs 30 上 smartparens 的内部变量未初始化导致
 ;; (void-variable smartparens-mode--suppress-set-explicitly) 报错：
 ;; 提前加载 smartparens，确保其 minor-mode 正确定义
@@ -118,6 +123,74 @@
 ;; If you use `org' and don't want your org files in the default location below,
 ;; change `org-directory'. It must be set before org loads!
 (setq org-directory "～/Library/Mobile Documents/com~apple~CloudDocs/org/")
+;; org-mode 崩溃/报错监控日志（便于事后分析）
+;; 访问~/.config/doom/org-crash.log 查看报错日志
+(defvar my/org-crash-log-file (expand-file-name "org-crash.log" doom-user-dir))
+(defvar my/org--command-error-fn command-error-function)
+(defvar my/org--ignored-errors
+  '(quit beginning-of-line end-of-line beginning-of-buffer end-of-buffer))
+(defvar my/org-crash-debug-on-error nil)
+
+(defun my/org--log (fmt &rest args)
+  (with-temp-buffer
+    (insert (format-time-string "[%Y-%m-%d %H:%M:%S] "))
+    (insert (apply #'format fmt args))
+    (insert "\n")
+    (append-to-file (point-min) (point-max) my/org-crash-log-file)))
+
+(defun my/org--ignorable-error-p (err)
+  (memq (car-safe err) my/org--ignored-errors))
+
+(defun my/org--key-desc ()
+  (let ((keys (this-command-keys-vector)))
+    (when (and keys (> (length keys) 0))
+      (key-description keys))))
+
+(defun my/org--messages-tail (lines)
+  (when (get-buffer "*Messages*")
+    (with-current-buffer "*Messages*"
+      (save-excursion
+        (goto-char (point-max))
+        (forward-line (- lines))
+        (buffer-substring-no-properties (point) (point-max))))))
+
+(defun my/org--log-error (err context caller)
+  (my/org--log "error: %s" (error-message-string err))
+  (my/org--log "command: %s caller: %s context: %s keys: %s"
+               (or this-command last-command "N/A")
+               (or caller "N/A")
+               (or context "N/A")
+               (or (my/org--key-desc) "N/A"))
+  (my/org--log "major-mode: %s evil-state: %s"
+               major-mode
+               (if (boundp 'evil-state) evil-state "N/A"))
+  (my/org--log "buffer: %s file: %s point: %s"
+               (buffer-name)
+               (or (buffer-file-name) "N/A")
+               (point))
+  (my/org--log "emacs: %s system: %s" emacs-version system-type)
+  (my/org--log "backtrace:\n%s"
+               (with-temp-buffer
+                 (backtrace)
+                 (buffer-string)))
+  (let ((msgs (my/org--messages-tail 200)))
+    (when msgs
+      (my/org--log "messages:\n%s" msgs)))
+  (my/org--log "----"))
+
+(defun my/org-command-error-logger (data context caller)
+  (when (and (derived-mode-p 'org-mode)
+             (not (my/org--ignorable-error-p data)))
+    (condition-case nil
+        (my/org--log-error data context caller)
+      (error nil)))
+  (when my/org--command-error-fn
+    (funcall my/org--command-error-fn data context caller)))
+
+(setq command-error-function #'my/org-command-error-logger)
+(add-hook 'org-mode-hook
+          (lambda ()
+            (setq-local debug-on-error my/org-crash-debug-on-error)))
 ;; org-modern SF Mono
 ;; ellipsis https://endlessparentheses.com/changing-the-org-mode-ellipsis.html
 (after! org
