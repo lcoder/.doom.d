@@ -62,3 +62,6 @@
 (package! pyim-basedict)
 (package! pyim-tsinghua-dict
   :recipe (:host github :repo "redguardtoo/pyim-tsinghua-dict"))
+
+;; org-babel: dart/flutter 代码块执行
+(package! ob-dart)

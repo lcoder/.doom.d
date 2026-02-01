@@ -132,6 +132,16 @@
               (face-remap-add-relative 'default :family "Sarasa Term SC Nerd")
               (set-fontset-font t 'han (font-spec :family "Sarasa Term SC Nerd") nil 'prepend))))
 
+;; org-babel: 允许执行 dart/flutter 代码块
+(after! org
+  (require 'ob-dart)
+  (add-to-list 'org-babel-load-languages '(dart . t))
+  (org-babel-do-load-languages 'org-babel-load-languages
+                               org-babel-load-languages)
+  ;; dart 输出默认按 raw 插入，避免 Org 对逗号做转义
+  (setq org-babel-default-header-args:dart
+        '((:results . "output raw"))))
+
 ;; 更简洁：基于主题设置，仅改字重，继承 outline-N 以保留颜色等样式
 (after! org
   (custom-theme-set-faces! 'user
