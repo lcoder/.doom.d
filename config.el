@@ -122,7 +122,35 @@
 
 ;; If you use `org' and don't want your org files in the default location below,
 ;; change `org-directory'. It must be set before org loads!
-(setq org-directory "～/Library/Mobile Documents/com~apple~CloudDocs/org/")
+(setq org-directory (expand-file-name "~/Library/Mobile Documents/com~apple~CloudDocs/org/"))
+
+;; Keep `SPC f r' robust if recentf/session state ever contains an invalid
+;; entry. Emacs 30 is stricter here; passing nil to `file-remote-p' errors.
+(defun my/recentf-valid-file-p (file)
+  (and (stringp file)
+       (not (string-empty-p file))))
+
+(defun my/recentf-sanitize-list (&rest _)
+  (require 'seq)
+  (when (boundp 'recentf-list)
+    (setq recentf-list
+          (delete-dups (seq-filter #'my/recentf-valid-file-p recentf-list)))))
+
+(after! recentf
+  (my/recentf-sanitize-list)
+  (advice-add #'recentf-save-list :before #'my/recentf-sanitize-list))
+
+(after! consult
+  (defadvice! my/consult-recent-file-sanitize-a (fn &rest args)
+    :around #'consult-recent-file
+    (require 'recentf)
+    (recentf-mode 1)
+    (my/recentf-sanitize-list)
+    (let ((default-directory
+           (if (stringp default-directory)
+               default-directory
+             (expand-file-name "~/"))))
+      (apply fn args))))
 ;; org-mode 崩溃/报错监控日志（便于事后分析）
 ;; 访问~/.config/doom/org-crash.log 查看报错日志
 (defvar my/org-crash-log-file (expand-file-name "org-crash.log" doom-user-dir))
