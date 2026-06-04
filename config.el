@@ -237,21 +237,6 @@
                 (face-remap-add-relative 'default :family family)
                 (set-fontset-font t 'han (font-spec :family family) nil 'prepend)))))
 
-(defun my/org-ctrl-c-ctrl-c ()
-  "Align Org tables, otherwise run `org-ctrl-c-ctrl-c'."
-  (interactive)
-  (cond
-   ((org-at-table-p)
-    (org-table-align))
-   (t
-    (call-interactively #'org-ctrl-c-ctrl-c))))
-
-(after! org
-  (map! :map org-mode-map
-        "C-c C-c" #'my/org-ctrl-c-ctrl-c
-        :localleader
-        :desc "Align org table" "t a" #'org-table-align))
-
 (use-package! valign
   :hook (org-mode . valign-mode))
 
