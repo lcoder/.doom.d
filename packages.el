@@ -58,6 +58,9 @@
 ;; Smart select expand/shrink
 (package! expreg)
 
+;; Visual alignment for Org tables with CJK/wide characters.
+(package! valign)
+
 ;; pyim 词库：清华大学开源词库
 (package! pyim-basedict)
 (package! pyim-tsinghua-dict
