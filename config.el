@@ -42,6 +42,15 @@
 ;; Source Code Pro ;; Menlo ;; Source Code Pro ;; SF Mono ;; Sarasa Term SC Nerd
 (setq doom-font (font-spec :family "FiraCode Nerd Font" :size 15))
 
+(defconst my/sarasa-term-sc-nerd-font-families
+  '("Sarasa Term SC Nerd Font"
+    "Sarasa Term SC Nerd"))
+
+(defun my/first-available-font-family (families)
+  (seq-find (lambda (family)
+              (find-font (font-spec :family family)))
+            families))
+
 ;; 通用小优化：禁用双向文本重排，降低重绘开销（不编辑 RTL 语言时安全）
 (setq-default bidi-paragraph-direction 'left-to-right)
 
@@ -124,33 +133,26 @@
 ;; change `org-directory'. It must be set before org loads!
 (setq org-directory (expand-file-name "~/Library/Mobile Documents/com~apple~CloudDocs/org/"))
 
-;; Keep `SPC f r' robust if recentf/session state ever contains an invalid
-;; entry. Emacs 30 is stricter here; passing nil to `file-remote-p' errors.
-(defun my/recentf-valid-file-p (file)
-  (and (stringp file)
-       (not (string-empty-p file))))
+(defun my/org-directory ()
+  (unless (and (stringp org-directory)
+               (file-accessible-directory-p org-directory))
+    (user-error "Invalid org-directory: %S" org-directory))
+  org-directory)
 
-(defun my/recentf-sanitize-list (&rest _)
-  (require 'seq)
-  (when (boundp 'recentf-list)
-    (setq recentf-list
-          (delete-dups (seq-filter #'my/recentf-valid-file-p recentf-list)))))
+(defun my/browse-notes ()
+  "Open `org-directory' directly."
+  (interactive)
+  (find-file (my/org-directory)))
 
-(after! recentf
-  (my/recentf-sanitize-list)
-  (advice-add #'recentf-save-list :before #'my/recentf-sanitize-list))
+(defun my/find-in-notes ()
+  "Find a file under `org-directory'."
+  (interactive)
+  (let ((default-directory (my/org-directory)))
+    (+vertico/consult-fd-or-find default-directory)))
 
-(after! consult
-  (defadvice! my/consult-recent-file-sanitize-a (fn &rest args)
-    :around #'consult-recent-file
-    (require 'recentf)
-    (recentf-mode 1)
-    (my/recentf-sanitize-list)
-    (let ((default-directory
-           (if (stringp default-directory)
-               default-directory
-             (expand-file-name "~/"))))
-      (apply fn args))))
+(map! :leader
+      :desc "Find file in notes" "n f" #'my/find-in-notes
+      :desc "Browse notes"       "n F" #'my/browse-notes)
 ;; org-mode 崩溃/报错监控日志（便于事后分析）
 ;; 访问~/.config/doom/org-crash.log 查看报错日志
 (defvar my/org-crash-log-file (expand-file-name "org-crash.log" doom-user-dir))
@@ -230,8 +232,10 @@
   ;; org-mode 使用 Sarasa Term SC Nerd，其他模式保持默认 FiraCode Nerd Font
   (add-hook 'org-mode-hook
             (lambda ()
-              (face-remap-add-relative 'default :family "Sarasa Term SC Nerd")
-              (set-fontset-font t 'han (font-spec :family "Sarasa Term SC Nerd") nil 'prepend))))
+              (when-let ((family (my/first-available-font-family
+                                  my/sarasa-term-sc-nerd-font-families)))
+                (face-remap-add-relative 'default :family family)
+                (set-fontset-font t 'han (font-spec :family family) nil 'prepend)))))
 
 ;; org-babel: 允许执行 dart/flutter 代码块
 (after! org
@@ -263,6 +267,22 @@
   (setq evil-escape-excluded-major-modes '(dired-mode))
   (delete 'visual evil-escape-excluded-states)
   (setq-default evil-escape-key-sequence "jk"))
+
+;; Dirvish can call `dired-get-filename' while point is on a header/blank line
+;; during redisplay.  In that case it returns nil, and the pinned Dirvish build
+;; may pass that nil to path helpers, producing "Wrong type argument: stringp,
+;; nil" when opening files from Dired.
+(after! dirvish
+  (defadvice! my/dirvish-ignore-missing-filename-a (fn &rest args)
+    :around #'dirvish--redisplay
+    (condition-case err
+        (apply fn args)
+      (wrong-type-argument
+       (unless (equal err '(wrong-type-argument stringp nil))
+         (signal (car err) (cdr err)))))))
+
+(after! yasnippet
+  (make-directory (expand-file-name "snippets/" doom-user-dir) t))
 
 ;; treesit
 (use-package! treesit-auto
