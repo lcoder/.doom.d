@@ -300,7 +300,11 @@
                 (treemacs-project-follow-mode -1)))))
 
 ;; 修改下划线为单词字符
-(modify-syntax-entry ?_ "w")
+(defun my/treat-underscore-as-word ()
+  (modify-syntax-entry ?_ "w"))
+
+(add-hook 'prog-mode-hook #'my/treat-underscore-as-word)
+(add-hook 'text-mode-hook #'my/treat-underscore-as-word)
 
 ;; vterm 字符 自动贴左
 (after! vterm
@@ -371,7 +375,7 @@
 ;; org roam pr: https://github.com/doomemacs/doomemacs/pull/5271/files
 (use-package! org-roam
   :config
-  (setq org-roam-directory (expand-file-name "roam")))
+  (setq org-roam-directory (expand-file-name "roam" org-directory)))
 
 ;; rust下的格式化
 (after! apheleia
