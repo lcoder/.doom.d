@@ -271,6 +271,38 @@
   (delete 'visual evil-escape-excluded-states)
   (setq-default evil-escape-key-sequence "jk"))
 
+;; 文件路径不做拼音/正则扩展：长路径可能生成过大的正则，导致文件选择失败。
+;; 独立样式保留无序多关键词匹配，不影响其他补全类别或中文输入。
+(after! orderless
+  (defvar my/orderless-file-compat-warned nil)
+  (let ((styles '(partial-completion basic)))
+    (if (fboundp 'orderless-define-completion-style)
+        (progn
+          ;; 延迟宏展开，使缺少该宏的旧版 Orderless 也能加载此配置。
+          (eval '(orderless-define-completion-style my/orderless-file
+                   "Literal multi-component completion for file paths."
+                   (orderless-matching-styles '(orderless-literal))
+                   (orderless-style-dispatchers nil)))
+          (setq styles '(my/orderless-file partial-completion basic)))
+      ;; 旧版保留基本路径补全；每个 Emacs 会话只提示一次。
+      (unless my/orderless-file-compat-warned
+        (setq my/orderless-file-compat-warned t)
+        (display-warning 'my/orderless-file
+                         "Orderless 较旧：文件补全已回退为基本路径匹配，不支持无序多关键词。"
+                         :warning)))
+    (setf (alist-get 'styles (alist-get 'file completion-category-overrides))
+          styles))
+  ;; Emacs 会把全局 styles 追加到类别 styles 后；无匹配时仍会落入拼音规则。
+  ;; 仅在文件补全调用内禁止该回退，其他类别继续使用原有全局 styles。
+  (defun my/file-completion-styles-a (fn string table pred point &optional metadata)
+    (let* ((metadata (or metadata (completion-metadata string table pred)))
+           (completion-styles
+            (unless (eq (completion-metadata-get metadata 'category) 'file)
+              completion-styles)))
+      (funcall fn string table pred point metadata)))
+  (dolist (fn '(completion-try-completion completion-all-completions))
+    (advice-add fn :around #'my/file-completion-styles-a)))
+
 ;; Dirvish can call `dired-get-filename' while point is on a header/blank line
 ;; during redisplay.  In that case it returns nil, and the pinned Dirvish build
 ;; may pass that nil to path helpers, producing "Wrong type argument: stringp,
