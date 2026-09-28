@@ -263,6 +263,26 @@
     '(org-level-7 :inherit outline-7 :weight normal)
     '(org-level-8 :inherit outline-8 :weight normal)))
 
+;; 中文 surround：左右标点均可触发，z 是中文圆括号的英文别名。
+;; 配对：（）【】《》〈〉「」『』“”‘’，新增时不附加空格。
+;; 示例：ysiwz 添加（），dsz 删除（），csz) 换成无空格的英文括号。
+(after! evil-surround
+  (let ((pairs (copy-tree (default-value 'evil-surround-pairs-alist))))
+    (dolist (pair '(("（" . "）") ("【" . "】")
+                    ("《" . "》") ("〈" . "〉")
+                    ("「" . "」") ("『" . "』")
+                    ("“" . "”") ("‘" . "’")))
+      (dolist (delimiter (list (car pair) (cdr pair)))
+        (setf (alist-get (string-to-char delimiter) pairs) pair)))
+    (setf (alist-get ?z pairs) '("（" . "）"))
+    (setq-default evil-surround-pairs-alist pairs))
+  ;; Doom 的 evil-embrace 会接管其他字符，需将这些触发键交回 surround。
+  (after! evil-embrace
+    (let ((keys (copy-sequence (default-value 'evil-embrace-evil-surround-keys))))
+      (dolist (key (string-to-list "（）【】《》〈〉「」『』“”‘’z"))
+        (cl-pushnew key keys))
+      (setq-default evil-embrace-evil-surround-keys keys))))
+
 ;; 改用这个 jk -> esc
 ;; 参考：https://emacs-china.org/t/evil-mode-insert-mode-emacs-easy-c-n-c-p/22512/11
 (after! evil-escape
