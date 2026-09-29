@@ -68,3 +68,8 @@
 
 ;; org-babel: dart/flutter 代码块执行
 (package! ob-dart)
+
+;; Activity-based saving, pinned for the super-save-in-progress API.
+(package! super-save
+  :recipe (:host github :repo "bbatsov/super-save")
+  :pin "dae7cfe4bba83904d1567e14cbbd7ed141ab37a1")

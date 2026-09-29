@@ -38,6 +38,52 @@
 ;; numbers are disabled. For relative line numbers, set this to `relative'.
 (setq display-line-numbers-type t)
 
+;; 空闲 30 秒后合并保存修改；不在切换窗口或离开应用时写盘。
+(defun my/super-save-safe-file-p ()
+  "Allow automatic saving only for existing, unlocked local plain files."
+  (and buffer-file-name
+       (not (file-remote-p buffer-file-name))
+       (not buffer-read-only)
+       (not (buffer-base-buffer))
+       (not (bound-and-true-p epa-file-encrypt-to))
+       (not (string-match-p
+             (if (boundp 'epa-file-name-regexp)
+                 epa-file-name-regexp
+               "\\.gpg\\(~\\|\\.~[0-9]+~\\)?\\'")
+             buffer-file-name))
+       (file-regular-p buffer-file-name)
+       (let ((owner (file-locked-p buffer-file-name)))
+         (or (null owner) (eq owner t)))))
+
+(defun my/format-unless-super-saving-p (&rest _args)
+  "Keep format-on-save for manual saves only."
+  (not (bound-and-true-p super-save-in-progress)))
+
+(after! apheleia
+  (advice-add 'apheleia-format-after-save :before-while
+              #'my/format-unless-super-saving-p))
+
+(use-package! super-save
+  :demand t
+  :config
+  ;; Disable first so reloading this block cannot leave duplicate timers.
+  (when (bound-and-true-p super-save-mode)
+    (super-save-mode -1))
+  (setq super-save-auto-save-when-idle t
+        super-save-idle-duration 30
+        super-save-all-buffers t
+        super-save-remote-files nil
+        super-save-when-focus-lost nil
+        super-save-when-buffer-switched nil
+        super-save-triggers nil
+        super-save-hook-triggers nil
+        super-save-handle-org-src nil
+        super-save-handle-edit-indirect nil
+        super-save-delete-trailing-whitespace nil)
+  ;; Check this before package predicates which may access remote files.
+  (add-hook 'super-save-predicates #'my/super-save-safe-file-p)
+  (super-save-mode 1))
+
 
 ;; Source Code Pro ;; Menlo ;; Source Code Pro ;; SF Mono ;; Sarasa Term SC Nerd
 (setq doom-font (font-spec :family "FiraCode Nerd Font" :size 15))
