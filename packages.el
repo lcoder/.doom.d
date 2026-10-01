@@ -53,7 +53,8 @@
 (package! command-log-mode)
 ;; --- end of 展示当前key的日志 ---
 
-(package! treesit-auto)
+;; Syntax highlighting and indentation for Justfiles.
+(package! just-mode)
 
 ;; Smart select expand/shrink
 (package! expreg)

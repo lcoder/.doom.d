@@ -63,6 +63,24 @@
   (advice-add 'apheleia-format-after-save :before-while
               #'my/format-unless-super-saving-p))
 
+;; EditorConfig 的空白修整也只在手动保存时执行。
+(defun my/editorconfig-trim-whitespace-h ()
+  "Trim whitespace on manual saves, without changing idle-save contents."
+  (when (and (not buffer-read-only)
+             (my/format-unless-super-saving-p))
+    (delete-trailing-whitespace)))
+
+(define-minor-mode my/editorconfig-trim-whitespace-mode
+  "Honor EditorConfig whitespace rules on manual saves."
+  :lighter nil
+  (if my/editorconfig-trim-whitespace-mode
+      (add-hook 'before-save-hook #'my/editorconfig-trim-whitespace-h nil t)
+    (remove-hook 'before-save-hook #'my/editorconfig-trim-whitespace-h t)))
+
+(after! editorconfig
+  (setq editorconfig-trim-whitespaces-mode
+        #'my/editorconfig-trim-whitespace-mode))
+
 (use-package! super-save
   :demand t
   :config
@@ -122,17 +140,7 @@
     (defun my/enable-expreg-sentence-in-text-mode ()
       (make-local-variable 'expreg-functions)
       (add-to-list 'expreg-functions #'expreg--sentence))
-    (add-hook 'text-mode-hook #'my/enable-expreg-sentence-in-text-mode))
-  ;; 在 rustic-mode 中确保存在 rust 的 tree-sitter 解析器(为了配合expreg扩展使用，利用treesit的语法树)
-  (after! rustic
-    (defun my/rustic-ensure-treesit-parser ()
-      (when (and (treesit-available-p)
-                 (treesit-language-available-p 'rust)
-                 (null (treesit-parser-list)))
-        (ignore-errors (treesit-parser-create 'rust))))
-    (add-hook 'rustic-mode-hook #'my/rustic-ensure-treesit-parser)
-    ;; 设置 rustic-mode 的缩进为2个空格
-    (setq rustic-indent-offset 2)))
+    (add-hook 'text-mode-hook #'my/enable-expreg-sentence-in-text-mode)))
 
 ;; --- start of 展示当前key的日志 ---
 (defvar dw/command-window-frame nil)
@@ -385,24 +393,17 @@
 (after! yasnippet
   (make-directory (expand-file-name "snippets/" doom-user-dir) t))
 
-;; treesit
-(use-package! treesit-auto
-  :config
-  (setq treesit-auto-install 'prompt)
-  (global-treesit-auto-mode -1)
-  (add-hook 'prog-mode-hook #'treesit-auto-mode))
+;; 使用各语言自己的项目发现机制；优先采用项目安装的工具版本。
+(after! lsp-dart
+  (setq lsp-dart-project-root-discovery-strategies '(closest-pubspec lsp-root)))
 
-;; 针对前端项目 自动开启lsp
-(dolist (hook '(typescript-ts-mode-local-vars-hook
-                tsx-ts-mode-local-vars-hook
-                js-ts-mode-local-vars-hook
-                json-ts-mode-local-vars-hook
-                ;; 兼容未进 ts-mode 时的回退模式
-                typescript-mode-local-vars-hook
-                js-mode-local-vars-hook
-                json-mode-local-vars-hook
-                web-mode-local-vars-hook))
-  (add-hook hook #'lsp!))
+(after! lsp-javascript
+  (setq lsp-clients-typescript-prefer-use-project-ts-server t))
+
+;; 注册通用格式器，是否选用由项目的目录变量决定。
+(after! apheleia
+  (set-formatter! 'oxfmt
+    '("apheleia-npx" "oxfmt" "--stdin-filepath" filepath)))
 
 ;; 添加项目搜索目录
 (after! projectile
