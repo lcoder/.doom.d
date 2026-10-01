@@ -14,6 +14,18 @@
 ;;      Alternatively, press 'gd' (or 'C-c c d') on a module to browse its
 ;;      directory (for easy access to its source code).
 
+;; A Gitless package cache must never resolve to Doom's parent repository.
+(when (and noninteractive
+           (boundp 'doom-local-dir)
+           (stringp doom-local-dir))
+  (let* ((repos (file-truename
+                 (expand-file-name "straight/repos" doom-local-dir)))
+         (ceilings (split-string (or (getenv "GIT_CEILING_DIRECTORIES") "")
+                                 path-separator t)))
+    (setenv "GIT_CEILING_DIRECTORIES"
+            (mapconcat #'identity (delete-dups (cons repos ceilings))
+                       path-separator))))
+
 (doom! :input
        ;;bidi              ; (tfel ot) thgir etirw uoy gnipleh
        chinese
@@ -31,7 +43,9 @@
        :ui
        ;;deft              ; notational velocity for Emacs
        doom                ; what makes DOOM look the way it does
-       doom-dashboard      ; a nifty splash screen for Emacs
+       (:if (doom-module-locate-path '(:ui . dashboard))
+            dashboard
+          doom-dashboard)  ; a nifty splash screen for Emacs
        ;;doom-quit         ; DOOM quit-message prompts when you quit Emacs
        (emoji +unicode)    ; 🙂
        hl-todo             ; highlight TODO/FIXME/NOTE/DEPRECATED/HACK/REVIEW
