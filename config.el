@@ -1,5 +1,10 @@
 ;;; $DOOMDIR/config.el -*- lexical-binding: t; -*-
 
+(load! "+ui")
+
+;; Set the notes location without loading Org or its database integration.
+(setq org-roam-directory (expand-file-name "roam" (or org-directory "~/org")))
+
 ;; Place your private configuration here! Remember, you do not need to run 'doom
 ;; sync' after modifying this file!
 
@@ -32,88 +37,11 @@
 ;; There are two ways to load a theme. Both assume the theme is installed and
 ;; available. You can either set `doom-theme' or manually load a theme with the
 ;; `load-theme' function. This is the default:
-(setq doom-theme 'doom-one)
+(setq doom-theme 'doom-moonlight)
 
 ;; This determines the style of line numbers in effect. If set to `nil', line
 ;; numbers are disabled. For relative line numbers, set this to `relative'.
 (setq display-line-numbers-type t)
-
-;; 空闲 30 秒后合并保存修改；不在切换窗口或离开应用时写盘。
-(defun my/super-save-safe-file-p ()
-  "Allow automatic saving only for existing, unlocked local plain files."
-  (and buffer-file-name
-       (not (file-remote-p buffer-file-name))
-       (not buffer-read-only)
-       (not (buffer-base-buffer))
-       (not (bound-and-true-p epa-file-encrypt-to))
-       (not (string-match-p
-             (if (boundp 'epa-file-name-regexp)
-                 epa-file-name-regexp
-               "\\.gpg\\(~\\|\\.~[0-9]+~\\)?\\'")
-             buffer-file-name))
-       (file-regular-p buffer-file-name)
-       (let ((owner (file-locked-p buffer-file-name)))
-         (or (null owner) (eq owner t)))))
-
-(defun my/format-unless-super-saving-p (&rest _args)
-  "Keep format-on-save for manual saves only."
-  (not (bound-and-true-p super-save-in-progress)))
-
-(after! apheleia
-  (advice-add 'apheleia-format-after-save :before-while
-              #'my/format-unless-super-saving-p))
-
-;; EditorConfig 的空白修整也只在手动保存时执行。
-(defun my/editorconfig-trim-whitespace-h ()
-  "Trim whitespace on manual saves, without changing idle-save contents."
-  (when (and (not buffer-read-only)
-             (my/format-unless-super-saving-p))
-    (delete-trailing-whitespace)))
-
-(define-minor-mode my/editorconfig-trim-whitespace-mode
-  "Honor EditorConfig whitespace rules on manual saves."
-  :lighter nil
-  (if my/editorconfig-trim-whitespace-mode
-      (add-hook 'before-save-hook #'my/editorconfig-trim-whitespace-h nil t)
-    (remove-hook 'before-save-hook #'my/editorconfig-trim-whitespace-h t)))
-
-(after! editorconfig
-  (setq editorconfig-trim-whitespaces-mode
-        #'my/editorconfig-trim-whitespace-mode))
-
-(use-package! super-save
-  :demand t
-  :config
-  ;; Disable first so reloading this block cannot leave duplicate timers.
-  (when (bound-and-true-p super-save-mode)
-    (super-save-mode -1))
-  (setq super-save-auto-save-when-idle t
-        super-save-idle-duration 30
-        super-save-all-buffers t
-        super-save-remote-files nil
-        super-save-when-focus-lost nil
-        super-save-when-buffer-switched nil
-        super-save-triggers nil
-        super-save-hook-triggers nil
-        super-save-handle-org-src nil
-        super-save-handle-edit-indirect nil
-        super-save-delete-trailing-whitespace nil)
-  ;; Check this before package predicates which may access remote files.
-  (add-hook 'super-save-predicates #'my/super-save-safe-file-p)
-  (super-save-mode 1))
-
-
-;; Source Code Pro ;; Menlo ;; Source Code Pro ;; SF Mono ;; Sarasa Term SC Nerd
-(setq doom-font (font-spec :family "FiraCode Nerd Font" :size 15))
-
-(defconst my/sarasa-term-sc-nerd-font-families
-  '("Sarasa Term SC Nerd Font"
-    "Sarasa Term SC Nerd"))
-
-(defun my/first-available-font-family (families)
-  (seq-find (lambda (family)
-              (find-font (font-spec :family family)))
-            families))
 
 ;; 通用小优化：禁用双向文本重排，降低重绘开销（不编辑 RTL 语言时安全）
 (setq-default bidi-paragraph-direction 'left-to-right)
@@ -142,41 +70,6 @@
       (add-to-list 'expreg-functions #'expreg--sentence))
     (add-hook 'text-mode-hook #'my/enable-expreg-sentence-in-text-mode)))
 
-;; --- start of 展示当前key的日志 ---
-(defvar dw/command-window-frame nil)
-(defun dw/toggle-command-window ()
-  (interactive)
-  (require 'posframe)
-  (require 'command-log-mode)
-  (if dw/command-window-frame
-      (progn
-        (posframe-delete-frame clm/command-log-buffer)
-        (setq dw/command-window-frame nil))
-    (progn
-      (global-command-log-mode t)
-      (setq clm/command-log-buffer (get-buffer-create " *command-log*"))
-      (with-current-buffer clm/command-log-buffer
-        (setq-local face-remapping-alist
-                    (cons '(default :height 120)
-                          face-remapping-alist)))
-      (let* ((cols 35)
-             (lines 4)
-             (border 2)
-             (cw (frame-char-width))
-             (ch (frame-char-height))
-             (posw (+ (* cols cw) (* 2 border)))
-             (x (- (frame-pixel-width) 10 posw))
-             (y 10))
-        (setq dw/command-window-frame
-              (posframe-show
-               clm/command-log-buffer
-               :position (cons x y)
-               :width cols
-               :height lines
-               :min-width cols
-               :min-height lines
-               :internal-border-width border
-               :internal-border-color "#c792ea"))))))
 ;; Bind a convenient key (SPC t k) to toggle the command window
 (map! :leader
       :desc "Toggle command log window"
@@ -185,13 +78,6 @@
 
 ;; If you use `org' and don't want your org files in the default location below,
 ;; change `org-directory'. It must be set before org loads!
-(setq org-directory (expand-file-name "~/Library/Mobile Documents/com~apple~CloudDocs/org/"))
-
-(defun my/org-directory ()
-  (unless (and (stringp org-directory)
-               (file-accessible-directory-p org-directory))
-    (user-error "Invalid org-directory: %S" org-directory))
-  org-directory)
 
 (defun my/browse-notes ()
   "Open `org-directory' directly."
@@ -207,89 +93,13 @@
 (map! :leader
       :desc "Find file in notes" "n f" #'my/find-in-notes
       :desc "Browse notes"       "n F" #'my/browse-notes)
-;; org-mode 崩溃/报错监控日志（便于事后分析）
-;; 访问~/.config/doom/org-crash.log 查看报错日志
-(defvar my/org-crash-log-file (expand-file-name "org-crash.log" doom-user-dir))
-(defvar my/org--command-error-fn command-error-function)
-(defvar my/org--ignored-errors
-  '(quit beginning-of-line end-of-line beginning-of-buffer end-of-buffer))
-(defvar my/org-crash-debug-on-error nil)
-
-(defun my/org--log (fmt &rest args)
-  (with-temp-buffer
-    (insert (format-time-string "[%Y-%m-%d %H:%M:%S] "))
-    (insert (apply #'format fmt args))
-    (insert "\n")
-    (append-to-file (point-min) (point-max) my/org-crash-log-file)))
-
-(defun my/org--ignorable-error-p (err)
-  (memq (car-safe err) my/org--ignored-errors))
-
-(defun my/org--key-desc ()
-  (let ((keys (this-command-keys-vector)))
-    (when (and keys (> (length keys) 0))
-      (key-description keys))))
-
-(defun my/org--messages-tail (lines)
-  (when (get-buffer "*Messages*")
-    (with-current-buffer "*Messages*"
-      (save-excursion
-        (goto-char (point-max))
-        (forward-line (- lines))
-        (buffer-substring-no-properties (point) (point-max))))))
-
-(defun my/org--log-error (err context caller)
-  (my/org--log "error: %s" (error-message-string err))
-  (my/org--log "command: %s caller: %s context: %s keys: %s"
-               (or this-command last-command "N/A")
-               (or caller "N/A")
-               (or context "N/A")
-               (or (my/org--key-desc) "N/A"))
-  (my/org--log "major-mode: %s evil-state: %s"
-               major-mode
-               (if (boundp 'evil-state) evil-state "N/A"))
-  (my/org--log "buffer: %s file: %s point: %s"
-               (buffer-name)
-               (or (buffer-file-name) "N/A")
-               (point))
-  (my/org--log "emacs: %s system: %s" emacs-version system-type)
-  (my/org--log "backtrace:\n%s"
-               (with-temp-buffer
-                 (backtrace)
-                 (buffer-string)))
-  (let ((msgs (my/org--messages-tail 200)))
-    (when msgs
-      (my/org--log "messages:\n%s" msgs)))
-  (my/org--log "----"))
-
-(defun my/org-command-error-logger (data context caller)
-  (when (and (derived-mode-p 'org-mode)
-             (not (my/org--ignorable-error-p data)))
-    (condition-case nil
-        (my/org--log-error data context caller)
-      (error nil)))
-  (when my/org--command-error-fn
-    (funcall my/org--command-error-fn data context caller)))
-
-(setq command-error-function #'my/org-command-error-logger)
-(add-hook 'org-mode-hook
-          (lambda ()
-            (setq-local debug-on-error my/org-crash-debug-on-error)))
 ;; org-modern SF Mono
 ;; ellipsis https://endlessparentheses.com/changing-the-org-mode-ellipsis.html
 (after! org
-  (setq org-ellipsis " ⤵")
-  ;; 设置代码块默认缩进为2个空格
-  (setq org-edit-src-content-indentation 2)
+  (setq org-ellipsis " ⤵"
+        org-edit-src-content-indentation 2)
   (custom-set-faces
-   '(org-ellipsis ((t (:foreground "#E6DC88")))))
-  ;; org-mode 使用 Sarasa Term SC Nerd，其他模式保持默认 FiraCode Nerd Font
-  (add-hook 'org-mode-hook
-            (lambda ()
-              (when-let ((family (my/first-available-font-family
-                                  my/sarasa-term-sc-nerd-font-families)))
-                (face-remap-add-relative 'default :family family)
-                (set-fontset-font t 'han (font-spec :family family) nil 'prepend)))))
+   '(org-ellipsis ((t (:foreground "#E6DC88"))))))
 
 (use-package! valign
   :hook (org-mode . valign-mode))
@@ -377,19 +187,6 @@
   (dolist (fn '(completion-try-completion completion-all-completions))
     (advice-add fn :around #'my/file-completion-styles-a)))
 
-;; Dirvish can call `dired-get-filename' while point is on a header/blank line
-;; during redisplay.  In that case it returns nil, and the pinned Dirvish build
-;; may pass that nil to path helpers, producing "Wrong type argument: stringp,
-;; nil" when opening files from Dired.
-(after! dirvish
-  (defadvice! my/dirvish-ignore-missing-filename-a (fn &rest args)
-    :around #'dirvish--redisplay
-    (condition-case err
-        (apply fn args)
-      (wrong-type-argument
-       (unless (equal err '(wrong-type-argument stringp nil))
-         (signal (car err) (cdr err)))))))
-
 (after! yasnippet
   (make-directory (expand-file-name "snippets/" doom-user-dir) t))
 
@@ -399,18 +196,6 @@
 
 (after! lsp-javascript
   (setq lsp-clients-typescript-prefer-use-project-ts-server t))
-
-;; 注册通用格式器，是否选用由项目的目录变量决定。
-(after! apheleia
-  (set-formatter! 'oxfmt
-    '("apheleia-npx" "oxfmt" "--stdin-filepath" filepath)))
-
-;; 添加项目搜索目录
-(after! projectile
-  (when (file-exists-p "~/.config/doom/local.el")
-    (load! "local"))
-  (unless projectile-project-search-path
-    (setq projectile-project-search-path '("~/workspace/")))) ;; 默认项目搜索路径
 
 ;; 自动跟踪当前buffer
 (after! treemacs
@@ -457,7 +242,7 @@
         pyim-cloudim nil
         pyim-candidates-search-buffer-p nil)
 
-  ;; 标点：永远半角（包括中文注释）
+  ;; 标点随输入状态自动切换：中文全角、英文半角。
   (setq-default pyim-punctuation-translate-p '(auto))
   ;; 模糊拼音
   (setq pyim-pinyin-fuzzy-alist
@@ -492,18 +277,6 @@
                         '(pyim-probe-isearch-mode))
             ;; 取消“行首/标点后强制半角”的探针
             (setq-local pyim-punctuation-half-width-functions nil)))
-
-;; org roam https://www.skfwe.cn/p/org-roam-%E4%BD%BF%E7%94%A8/
-;; org roam pr: https://github.com/doomemacs/doomemacs/pull/5271/files
-(use-package! org-roam
-  :config
-  (setq org-roam-directory (expand-file-name "roam" org-directory)))
-
-;; rust下的格式化
-(after! apheleia
-  (set-formatter! 'rustfmt
-    '("rustfmt" "--edition" "2024")
-    :modes '(rust-mode rustic-mode rust-ts-mode)))
 
 ;; 关闭treemacs自动追踪（已在前面 after! treemacs 中统一处理）
 ;; Whenever you reconfigure a package, make sure to wrap your config in an

@@ -1,43 +1,39 @@
-# Repository Guidelines
+# 仓库规范
 
-## Project Structure & Module Organization
+## 项目结构与模块组织
 
-This repository contains shared Doom Emacs configuration for macOS, targeting Emacs 29.1+. `init.el` enables Doom modules; `packages.el` declares packages and pins; `config.el` loads local overrides and configures editor behavior. `lisp/my-dev-*.el` separates settings, environments, formatting, language support, tasks, and UI. `test/my-dev-*-test.el` contains ERT regression tests. `README.md` documents setup and daily commands; `VALIDATION.md` records verified behavior and remaining acceptance checks. `custom.el` holds Customize settings. Runtime assets and caches belong outside this repository.
+本仓库存放适用于 macOS 的共享 Doom Emacs 配置，面向 Emacs 29.1 及以上版本。`init.el` 用于启用 Doom 模块；`packages.el` 用于声明软件包及其固定版本；`config.el` 和 `+ui.el` 用于保存个人偏好。四个私有 Doom 模块位于 `modules/local/` 下：`environment`、`save-format`、`languages` 和 `project-commands`。本机覆盖配置通过 `doom-before-modules-config-hook` 加载。`README.md` 记录安装配置方法和日常命令。`custom.el` 保存 Customize 设置。运行时资源和缓存应放在本仓库之外。
 
-## Build, Test, and Development Commands
+## 开发命令
 
-Run Doom CLI commands from this directory using the installed Doom executable:
+在本目录中使用已安装的 Doom 可执行文件运行以下命令：
 
-- `doom sync`: synchronize changes to `init.el` or `packages.el`; restart Emacs afterward.
-- `doom sync --env`: synchronize packages and refresh the machine's environment cache on supported Doom versions.
-- `M-x doom/reload`: reload configuration changes.
-- `M-x my/dev-doctor`: inspect local tools and project capabilities.
-- `M-x my/dev-setup`: explicitly install missing development dependencies.
-- `git diff --check`: check whitespace before submitting.
+- `doom sync`：同步 `init.el` 或 `packages.el` 的变更；完成后重启 Emacs。
+- `doom sync --env`：同步软件包，并在支持此功能的 Doom 版本中刷新本机环境缓存。
+- `M-x doom/reload`：重新加载配置变更。
+- 各模块的 `doctor.el` 文件提供只读的能力检查。打开文件时会自动准备相应的编辑器支持，无需运行额外的设置命令或使用自定义开发菜单。
+- `git diff --check`：提交前检查空白字符问题。
 
-## Coding Style & Naming Conventions
+## 代码风格与命名约定
 
-Use spaces, standard Emacs Lisp indentation (two-space body indentation), and `indent-region`. Retain lexical-binding headers in modules. Use kebab-case names, `my/dev-` for development features, and `--` for internal helpers. Add docstrings to functions and configurable variables. Use `after!` and `use-package!` for package configuration. Keep hooks, advice, timers, and keybindings safe to reload without duplication.
+使用空格和标准 Emacs Lisp 缩进（函数体缩进两个空格），并通过 `indent-region` 调整缩进。保留模块文件头部的 lexical-binding 声明。名称采用 kebab-case（小写单词以连字符分隔）；模块功能使用 `+local-<module>-` 前缀，个人偏好使用 `my/` 前缀，内部辅助函数使用 `--` 分隔。为函数和可配置变量添加文档字符串。使用 `after!` 和 `use-package!` 配置软件包。确保钩子、函数增强（advice）、定时器和按键绑定可以安全地重新加载，不会重复注册。
 
-## Testing Guidelines
+所有必要的 Elisp 求值都使用 `emacsclient`；保持用户现有的图形界面会话运行。
 
-Use the running Doom Emacs server through `emacsclient` for evaluation, syntax checks, and byte compilation. Run the suite with:
+## 提交与拉取请求规范
 
-```sh
-emacsclient --eval '
-  (progn
-    (dolist (file (directory-files
-                  (expand-file-name "test/" doom-user-dir) t "-test\\.el$"))
-      (load file nil t))
-    (ert-run-tests-batch "^my/dev-"))'
-```
+遵循近期提交历史：提交标题使用英文 Conventional Commit 格式，例如 `fix(doom): guard package lookup`；正文使用简洁的中文描述行为变化。每次提交应聚焦于明确的变更。拉取请求应说明变更内容、相关版本，在适用时关联问题，并为界面变化提供截图。
 
-Never use `ert-run-tests-batch-and-exit` against the live server. Name tests `my/dev-<feature>-<behavior>` and cover changed behavior, missing-tool fallback, and reload safety. No numeric coverage threshold is defined. Record relevant manual checks and unresolved platform limitations in `VALIDATION.md`.
+## 配置与代理要求
 
-## Commit & Pull Request Guidelines
+面向用户的说明、进度更新和最终回复统一使用中文。
 
-Follow recent history: English Conventional Commit subjects, such as `fix(doom): guard package lookup`, with concise Chinese bodies describing behavior and validation. Keep commits focused. PRs should explain the change, checks performed, relevant versions, linked issues when applicable, and screenshots for visual changes.
+本机路径和覆盖配置保存在已被 Git 忽略的 `local.el` 中；绝不提交敏感信息、环境缓存或生成的二进制文件。根据所需能力查找工具，并遵守项目配置。保留工作区中与当前任务无关的变更。提交或推送前，核对远程仓库，并区分个人与公司的 GitHub 身份；当前检出使用个人仓库 `lcoder/.doom.d`。
 
-## Configuration & Agent Instructions
+## 模块边界
 
-Keep machine paths and overrides in ignored `local.el`; never commit secrets, environment caches, or generated binaries. Discover tools by capability and respect project configuration. Preserve unrelated working-tree changes. Before committing or pushing, verify the remote and personal versus company GitHub identity; this checkout uses personal repository `lcoder/.doom.d`.
+遵循已批准的 Doom 原生架构。不要添加自定义开发快捷入口、设置流程或任务运行器。调用方只能使用 `environment` 模块的公开 API 和常规钩子，不得访问其内部缓存。在输入或保存的执行路径上，不得同步调用命令行工具进行探测。只允许自动准备语法库和受支持的语言服务器；SDK、mise 运行时和业务依赖应保留各自的常规安装流程。在运行时检查可选模块是否可用，并确保重新加载具有幂等性。
+
+## 关于快捷键
+除非用户明确要求，否则不要新增自定义快捷键。优先复用已有绑定或通过 `M-x` 调用命令，不要为新增功能自动配置快捷键。
+新增绑定应遵循 Doom Emacs 现有的按键分组和作用域约定，优先使用 `map!`；添加前检查已有绑定，避免重复或意外覆盖。

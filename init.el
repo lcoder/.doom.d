@@ -26,6 +26,41 @@
             (mapconcat #'identity (delete-dups (cons repos ceilings))
                        path-separator))))
 
+;; Personal defaults are declared before the machine-local override hook.
+(defgroup my/dev nil "Personal Doom preferences." :group 'convenience)
+(defcustom my/dev-notes-directory nil
+  "Machine-local notes directory, or nil to retain an existing notes location."
+  :type '(choice (const nil) directory) :group 'my/dev)
+(defcustom my/dev-font-families
+  '("FiraCode Nerd Font" "SF Mono" "Menlo")
+  "Preferred available editor fonts; the current system font is the fallback."
+  :type '(repeat string) :group 'my/dev)
+(defcustom my/dev-font-size 15
+  "Editor font size on this machine."
+  :type 'number :group 'my/dev)
+(defcustom my/dev-org-font-families
+  '("Sarasa Term SC Nerd Font" "Sarasa Term SC Nerd")
+  "Preferred available Org fonts, applied only to Org buffers."
+  :type '(repeat string) :group 'my/dev)
+(defcustom my/dev-project-search-directories nil
+  "Optional machine-local Projectile discovery directories."
+  :type '(repeat directory) :group 'my/dev)
+(defcustom my/dev-log-max-bytes (* 1024 1024)
+  "Maximum size of each local Org error log."
+  :type 'integer :group 'my/dev)
+(defcustom my/dev-log-history-count 2
+  "Number of rotated local Org error logs to retain."
+  :type 'integer :group 'my/dev)
+
+(defun my/load-local-settings-h ()
+  "Read machine-local variable overrides before module configuration."
+  (let ((file (expand-file-name "local.el" doom-user-dir)))
+    (when (file-readable-p file) (load file nil t))))
+(add-hook 'doom-before-modules-config-hook #'my/load-local-settings-h -100)
+(defun my/retire-previous-development-config-h ()
+  (load (expand-file-name "+migration.el" doom-user-dir) nil t))
+(add-hook 'doom-before-modules-config-hook #'my/retire-previous-development-config-h -90)
+
 (doom! :input
        ;;bidi              ; (tfel ot) thgir etirw uoy gnipleh
        chinese
@@ -104,7 +139,7 @@
        ;;ansible
        ;;biblio            ; Writes a PhD for you (citation needed)
        ;;collab            ; buffers with friends
-       ;;debugger          ; FIXME stepping through code, to help you add bugs，可以参考：https://users.rust-lang.org/t/debugging-in-emacs-doom/99540
+       debugger           ; project-aware Rust Dape; Flutter retains lsp-dart DAP
        ;;direnv
        ;;docker
        editorconfig        ; let someone else argue about tabs vs spaces
@@ -136,7 +171,7 @@
        ;;crystal           ; ruby at the speed of c
        ;;csharp            ; unity, .NET, and mono shenanigans
        ;;data              ; config/data formats
-       (dart +flutter +lsp) ; paint ui and not much else
+       (dart +flutter +lsp +tree-sitter) ; paint ui and not much else
        ;;dhall
        ;;elixir            ; erlang done right
        ;;elm               ; care for a cup of TEA?
@@ -189,7 +224,7 @@
        ;;swift             ; who asked for emoji variables?
        ;;terra             ; Earth and Moon in alignment for performance.
        (web +lsp)          ; the tubes
-       yaml                ; JSON, but readable
+       (yaml +lsp +tree-sitter) ; schema-aware config editing
        ;;zig               ; C, but simpler
 
        :email
@@ -203,6 +238,12 @@
        ;;everywhere        ; *leave* Emacs!? You must be joking
        ;;irc               ; how neckbeards socialize
        ;;(rss +org)        ; emacs as an RSS reader
+
+       :local
+       environment
+       save-format
+       languages
+       project-commands
 
        :config
        ;;literate

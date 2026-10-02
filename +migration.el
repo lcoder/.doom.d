@@ -1,0 +1,91 @@
+;;; +migration.el -*- lexical-binding: t; -*-
+;; Retire only registrations owned by the previous flat-file implementation.
+;; This also makes an in-place doom/reload safe without restarting the editor.
+(require 'cl-lib)
+
+(defun my/retire-dev-advice (pairs)
+  (dolist (pair pairs)
+    (when (fboundp (car pair)) (advice-remove (car pair) (cdr pair)))))
+
+(defun my/retire-dev-environment ()
+  (my/retire-dev-advice
+   '((lsp . my/dev-env--guard-tool) (lsp-deferred . my/dev-env--guard-tool)
+     (eglot-ensure . my/dev-env--guard-tool) (flycheck-buffer . my/dev-env--guard-tool)
+     (lsp--start-connection . my/dev-env--remember-lsp-environment)
+     (lsp--session-workspaces . my/dev-env--filter-lsp-workspaces)
+     (lsp--find-workspace . my/dev-env--find-lsp-workspace)
+     (lsp--find-multiroot-workspace . my/dev-env--find-lsp-multiroot-workspace)
+     (lsp--try-open-in-library-workspace . my/dev-env--find-lsp-multiroot-workspace))))
+
+(defun my/retire-dev-format ()
+  (when (bound-and-true-p my/dev-format--native-formatters)
+    ;; Restore the package table before the new module captures its baseline.
+    ;; The old configuration replaced command forms as well as adding advice.
+    (setq apheleia-formatters (copy-tree my/dev-format--native-formatters)
+          my/dev-format--native-formatters nil)
+    (when (boundp '+local-save-format--native-formatters)
+      (setq +local-save-format--native-formatters nil)))
+  (my/retire-dev-advice
+   '((apheleia--get-formatters . my/dev-format--get-formatters-a)
+     (apheleia-format-buffer . my/dev-format--buffer-a)
+     (basic-save-buffer . my/dev-format--clean-save-a)
+     (apheleia--save-buffer-silently . my/dev-format--save-if-changed-a)
+     (apheleia-format-after-save . my/dev-format--save-allowed-p)
+     (apheleia--make-process . my/dev-format--process-context-a)
+     (apheleia-format-after-save . my/format-unless-super-saving-p))))
+
+(defun my/retire-dev-keys ()
+  (when (and (boundp 'doom-leader-map)
+             (bound-and-true-p my/dev-task--installed-map)
+             (bound-and-true-p my/dev-task--installed-prefix))
+    (let* ((key (kbd my/dev-task--installed-prefix))
+           (binding (lookup-key doom-leader-map key))
+           (map (if (and (consp binding) (stringp (car binding))) (cdr binding) binding)))
+      (when (eq map my/dev-task--installed-map) (define-key doom-leader-map key nil))))
+  (when (and (boundp 'compilation-mode-map)
+             (eq (lookup-key compilation-mode-map (kbd "g")) 'my/dev-project-task-rerun))
+    (define-key compilation-mode-map (kbd "g") nil)
+    (when (eq (lookup-key compilation-mode-map (kbd "C-c C-c")) 'kill-compilation)
+      (define-key compilation-mode-map (kbd "C-c C-c") #'compile-goto-error)))
+  (when (fboundp 'evil-get-auxiliary-keymap)
+    (dolist (symbol '(dart-mode-map dart-ts-mode-map))
+      (when (boundp symbol)
+        (dolist (map (cons (symbol-value symbol)
+                          (mapcar (lambda (state)
+                                    (evil-get-auxiliary-keymap (symbol-value symbol) state))
+                                  '(normal visual motion insert emacs))))
+          (when (keymapp map)
+            (let ((key (kbd (concat doom-localleader-key " d d"))))
+              (when (eq (lookup-key map key) 'my/dev-project-debug) (define-key map key nil)))
+            (dolist (entry '(("f f" my/dev-flutter-run flutter-run)
+                             ("f q" my/dev-flutter-quit flutter-quit)
+                             ("f r" my/dev-flutter-hot-reload flutter-hot-reload)
+                             ("f R" my/dev-flutter-hot-restart flutter-hot-restart)))
+              (let ((key (kbd (concat doom-localleader-key " " (car entry)))))
+                (when (eq (lookup-key map key) (cadr entry))
+                  (define-key map key (caddr entry)))))))))))
+
+(remove-hook 'after-make-frame-functions #'my/dev-after-frame-font-h)
+(dolist (hook '(find-file-hook hack-local-variables-hook))
+  (remove-hook hook #'my/dev-env--file-hook))
+(remove-hook 'super-save-predicates #'my/super-save-safe-file-p)
+(dolist (buffer (buffer-list))
+  (with-current-buffer buffer
+    (when (bound-and-true-p my/editorconfig-trim-whitespace-mode)
+      (my/editorconfig-trim-whitespace-mode -1))
+    (remove-hook 'before-save-hook #'my/editorconfig-trim-whitespace-h t)))
+(my/retire-dev-environment)
+(my/retire-dev-format)
+(my/retire-dev-keys)
+(dolist (command '(my/dev-project-task my/dev-project-task-rerun
+                   my/dev-project-debug my/dev-setup my/dev-doctor
+                   my/dev-env-refresh my/dev-format-refresh
+                   my/dev-flutter-run my/dev-flutter-quit
+                   my/dev-flutter-hot-reload my/dev-flutter-hot-restart))
+  (when (fboundp command) (fmakunbound command)))
+(dolist (feature '(lsp-mode eglot flycheck))
+  (eval `(with-eval-after-load ',feature (my/retire-dev-environment))))
+(with-eval-after-load 'apheleia (my/retire-dev-format))
+(dolist (feature '(dart-mode dart-ts-mode compile doom-keybinds))
+  (eval `(with-eval-after-load ',feature (my/retire-dev-keys))))
+(setq load-path (delete (expand-file-name "lisp/" doom-user-dir) load-path))
