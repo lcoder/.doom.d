@@ -162,13 +162,15 @@
                             "Dirvish 遇到空文件名，已跳过本次重绘。" :warning))
        (signal (car err) (cdr err))))))
 
-(defun my/dev-select-doom-fonts-h (&rest _)
-  "Choose available fonts; Doom owns frame and fontset initialization."
-  (condition-case err
-      (my/dev-ui-apply-fonts)
-    (error (display-warning 'my/dev
-                            (format "保留当前字体：%s" (error-message-string err))
-                            :warning))))
+(defun my/dev-select-doom-fonts-h (&optional reload)
+  "Choose available fonts without replacing Doom's active font adjustments.
+Preserve the current font on RELOAD and while a size adjustment is active."
+  (unless (or reload (get 'doom-font 'initial-value))
+    (condition-case err
+        (my/dev-ui-apply-fonts)
+      (error (display-warning 'my/dev
+                              (format "保留当前字体：%s" (error-message-string err))
+                              :warning)))))
 
 (remove-hook 'after-make-frame-functions #'my/dev-after-frame-font-h)
 (when (fboundp 'doom-init-fonts-h)
