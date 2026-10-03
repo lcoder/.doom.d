@@ -147,13 +147,21 @@
         (cl-pushnew key keys))
       (setq-default evil-embrace-evil-surround-keys keys))))
 
-;; 改用这个 jk -> esc
-;; 参考：https://emacs-china.org/t/evil-mode-insert-mode-emacs-easy-c-n-c-p/22512/11
+;; jk 仅退出插入和替换状态，保留导航及特殊窗口的原有按键行为。
 (after! evil-escape
-  (setq-default evil-escape-delay 0.3)
-  (setq evil-escape-excluded-major-modes '(dired-mode))
-  (delete 'visual evil-escape-excluded-states)
-  (setq-default evil-escape-key-sequence "jk"))
+  (setq-default evil-escape-key-sequence "jk"
+                evil-escape-delay 0.2
+                evil-escape-unordered-key-sequence nil)
+
+  (defun my/evil-escape--outside-editing-p ()
+    "Return non-nil outside Evil insert and replace states."
+    (not (memq evil-state '(insert replace))))
+
+  (add-hook 'evil-escape-inhibit-functions #'my/evil-escape--outside-editing-p)
+  ;; 补回旧配置覆盖的默认保护，同时保留其他配置追加的排除项。
+  (dolist (mode '(neotree-mode treemacs-mode vterm-mode ghostel-mode dired-mode))
+    (add-to-list 'evil-escape-excluded-major-modes mode))
+  (add-to-list 'evil-escape-excluded-states 'visual))
 
 ;; 文件路径不做拼音/正则扩展：长路径可能生成过大的正则，导致文件选择失败。
 ;; 独立样式保留无序多关键词匹配，不影响其他补全类别或中文输入。
