@@ -195,4 +195,8 @@
   (when (fboundp 'dirvish--redisplay)
     (advice-add 'dirvish--redisplay :around #'my/dirvish-ignore-missing-filename-a)))
 
+;; Keep code lenses on their own visual line so wrapping cannot obscure indentation.
+(after! lsp-lens
+  (setq lsp-lens-place-position 'above-line))
+
 ;;; +ui.el ends here

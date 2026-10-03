@@ -3,6 +3,45 @@
 (defvar lsp-dart-test--process-buffer-name)
 (defvar lsp-dart-test-output--buffer-name)
 (defvar lsp-dart-test-output--show-loading-tests-message)
+(defvar rustic-cargo-test-runner)
+(defvar rustic-cargo-test-exec-command)
+(defvar rustic-cargo-bin)
+
+(defun +local-languages--rust-test-runnable ()
+  "Return rust-analyzer's exact test at point for the native LSP runner.
+Keep Rustic as the fallback when its runner is customized or LSP is unavailable."
+  (when (and (bound-and-true-p lsp-mode)
+             (eq rustic-cargo-test-runner 'cargo)
+             (equal rustic-cargo-test-exec-command "test")
+             (equal rustic-cargo-bin "cargo")
+             (cl-every #'fboundp '(lsp-rust-analyzer-initialized?
+                                   lsp-rust-analyzer--runnables
+                                   lsp-rust-analyzer-run
+                                   lsp-point-in-range?))
+             (lsp-rust-analyzer-initialized?))
+    (let* ((position (lsp--cur-position))
+           (uri (lsp--buffer-uri))
+           (runnables
+            (cl-remove-if-not
+             (lambda (runnable)
+               (let* ((args (lsp-get runnable :args))
+                      (location (lsp-get runnable :location))
+                      (range (and location (lsp-get location :targetRange))))
+                 (and (equal (lsp-get runnable :kind) "cargo")
+                      (equal (car (append (lsp-get args :cargoArgs) nil)) "test")
+                      (member "--exact" (append (lsp-get args :executableArgs) nil))
+                      (equal (and location (lsp-get location :targetUri)) uri)
+                      range (lsp-point-in-range? position range))))
+             (append (lsp-rust-analyzer--runnables) nil))))
+      (if (cdr runnables)
+          (lsp--completing-read
+           "Test target: " runnables
+           (lambda (runnable)
+             (format "%s [%s]" (lsp-get runnable :label)
+                     (string-join
+                      (append (lsp-get (lsp-get runnable :args) :cargoArgs) nil) " ")))
+           nil t)
+        (car runnables)))))
 
 (defun +local-languages--dart-test-buffer-name (directory &optional output)
   "Name DIRECTORY's native test process or OUTPUT buffer."

@@ -2,6 +2,26 @@
 
 ;; All private/package compatibility advice is installed in this one place.
 
+(defun +local-languages--rustic-beginning-of-defun-a (function &rest args)
+  "Supply Rustic's missing classic syntax helper while calling FUNCTION.
+Only affects Tree-sitter Rust buffers; pass ARGS to FUNCTION unchanged."
+  (if (and (derived-mode-p 'rust-ts-mode)
+           (not (fboundp 'rust-in-str-or-cmnt)))
+      ;; Rustic still uses this helper, which only rust-prog-mode defines.
+      (cl-letf (((symbol-function 'rust-in-str-or-cmnt)
+                 (lambda () (nth 8 (syntax-ppss)))))
+        (apply function args))
+    (apply function args)))
+
+(defun +local-languages--rustic-current-test-a (function &rest args)
+  "Prefer the native exact Rust test action, otherwise call FUNCTION with ARGS."
+  (if-let ((runnable (+local-languages--rust-test-runnable)))
+      (progn
+        ;; Preserve Rustic's save and active-process handling before running.
+        (rustic-compilation-process-live)
+        (lsp-rust-analyzer-run runnable))
+    (apply function args)))
+
 (defun +local-languages--flutter-run-a (function &rest args)
   "Keep the native Flutter run command inside its component."
   (+local-languages--flutter-entry function args nil))
@@ -58,6 +78,10 @@ inside that buffer; binding only the source environment cannot isolate runs."
               (lsp--find-multiroot-workspace :around +local-languages--find-multiroot)
               (lsp--try-open-in-library-workspace :around +local-languages--find-multiroot)))
            ('eglot '((eglot-ensure :around +local-languages--guard-eglot)))
+           ('rustic-interaction
+            '((rustic-beginning-of-defun :around +local-languages--rustic-beginning-of-defun-a)))
+           ('rustic-cargo
+            '((rustic-cargo-current-test :around +local-languages--rustic-current-test-a)))
            ('flutter
             '((flutter-run :around +local-languages--flutter-run-a)
               (flutter-hot-reload :around +local-languages--flutter-control-a)

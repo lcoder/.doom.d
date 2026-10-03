@@ -70,6 +70,13 @@
   (+local-languages--install-compat 'lsp-dart-dap))
 (after! lsp-mode (+local-languages--install-compat 'lsp-mode))
 (after! eglot (+local-languages--install-compat 'eglot))
+(when (modulep! :lang rust)
+  (after! rustic-interaction
+    (+local-languages--install-compat 'rustic-interaction))
+  (after! rustic-cargo
+    (unless (featurep '+local-languages-testing)
+      (load! "testing" +local-languages--directory))
+    (+local-languages--install-compat 'rustic-cargo)))
 (after! lsp-javascript (setq lsp-clients-typescript-prefer-use-project-ts-server t))
 (after! dape
   (when (modulep! :lang rust)

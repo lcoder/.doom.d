@@ -57,6 +57,8 @@
 
 Dart 新旧模式共享既有 Flutter 运行、停止、热重载、重启和测试绑定。Flutter 控制命令按最近 pubspec 隔离会话；原生测试也按组件保留进程、输出和环境，并限制测试包的进程设置作用范围。Rust 使用 Dape 的配置和编译生命周期，动态查找已有 LLDB 适配器，从 Cargo 构建输出取得可执行路径；多目标无法确定时使用原生 Dape 配置覆盖。
 
+Rust 的 `SPC m t t` 在 rust-analyzer 就绪时优先使用光标所在测试的原生 Run Test 操作：由语言服务提供完整测试名、Cargo 目标和打印输出参数，结果显示在该测试的原生 compilation 缓冲区。这样只运行所属目标中的精确测试，避免其他目标的零测试汇总；多个匹配目标使用原生选择界面。无匹配单测试、LSP 不可用或自定义了 Rustic runner/Cargo 命令时保留原有行为；`SPC m t a` 继续运行原有的全部测试命令。
+
 `M-o/M-p` 继续执行原有扩选/收缩。缺失或不兼容的原生语法库先回退基础模式；语法库就绪后自动启用对应模式。
 
 ## 保存规则
@@ -83,7 +85,7 @@ Org 字体只修改当前缓冲区；关闭按键展示时同步停止记录。O
 | --- | --- |
 | `+ui.el` | 在 Doom 字体初始化前选择可用字体；不自行初始化 frame。 |
 | `save-format/+save.el` | 原生保存 hooks 不覆盖刚被自动保存的未修改文件；在 Apheleia 入口准备工具并继续其原生校验。 |
-| `languages/autoload/compat.el` | LSP 缺少统一的异步环境准备入口和跨环境 workspace 筛选接口；Flutter/DAP 需适配组件与异步 provider。仅在目标函数可用时安装。 |
+| `languages/autoload/compat.el` | LSP 缺少统一的异步环境准备入口和跨环境 workspace 筛选接口；Flutter/DAP 需适配组件与异步 provider；Rustic 在 Tree-sitter 模式定位函数时需临时补齐旧语法辅助函数，当前单测试入口优先委托 rust-analyzer 的精确 Run Test 操作。仅在目标函数可用时安装。 |
 | `project-commands/+commands.el` | 为原生命令临时绑定组件上下文，输出和历史继续由原生机制管理。 |
 
 生命周期依据 [Doom 官方配置文档](https://github.com/doomemacs/core/blob/master/docs/getting_started.org) 与本机安装的 Doom 实现。
