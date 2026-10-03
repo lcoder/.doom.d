@@ -35,7 +35,7 @@
   '("FiraCode Nerd Font" "SF Mono" "Menlo")
   "Preferred available editor fonts; the current system font is the fallback."
   :type '(repeat string) :group 'my/dev)
-(defcustom my/dev-font-size 15
+(defcustom my/dev-font-size 13
   "Editor font size on this machine."
   :type 'number :group 'my/dev)
 (defcustom my/dev-org-font-families
