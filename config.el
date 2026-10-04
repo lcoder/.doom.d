@@ -243,8 +243,8 @@
 (after! pyim
   (setq default-input-method "pyim"
         pyim-default-scheme 'quanpin
-        ;; GUI 优先用 posframe；不行就回退到 minibuffer
-        pyim-page-tooltip '(posframe minibuffer)
+        ;; 固定在 minibuffer 显示候选词，规避 posframe 定位触发的崩溃
+        pyim-page-tooltip 'minibuffer
         pyim-page-length 8
         ;; 性能/隐私：默认关云输入；关 buffer 搜词（容易卡）
         pyim-cloudim nil
