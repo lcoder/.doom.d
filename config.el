@@ -43,6 +43,11 @@
 ;; numbers are disabled. For relative line numbers, set this to `relative'.
 (setq display-line-numbers-type t)
 
+;; 补全弹窗默认选中第一项，Enter 接受候选而不换行。
+(after! corfu
+  (setq corfu-preselect 'first
+        +corfu-want-ret-to-confirm t))
+
 ;; 通用小优化：禁用双向文本重排，降低重绘开销（不编辑 RTL 语言时安全）
 (setq-default bidi-paragraph-direction 'left-to-right)
 

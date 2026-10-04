@@ -21,6 +21,41 @@
       (when (stringp family)
         (setq doom-font (font-spec :family family :size my/dev-font-size))))))
 
+(defun my/dev-ui-field-weight-h ()
+  "Use a medium weight for field names while preserving other face attributes."
+  (when (facep 'font-lock-property-name-face)
+    (set-face-attribute 'font-lock-property-name-face nil :weight 'medium)))
+
+(defun my/dev-ui-corfu-faces-h ()
+  "Keep Corfu selection and annotations readable in dark and light themes."
+  (when (and (facep 'corfu-current)
+             (facep 'corfu-annotations)
+             (fboundp 'doom-blend))
+    (let* ((doom-palette-p
+            (and (fboundp 'doom-color)
+                 (seq-some (lambda (theme)
+                             (string-prefix-p "doom-" (symbol-name theme)))
+                           custom-enabled-themes)))
+           (accent (or (and doom-palette-p (doom-color 'highlight))
+                       (and doom-palette-p (doom-color 'blue))
+                       (face-attribute 'highlight :background nil t)))
+           (background (face-attribute 'corfu-default :background nil t))
+           (foreground (face-attribute 'corfu-default :foreground nil t))
+           (light-p (eq (frame-parameter nil 'background-mode) 'light)))
+      (when (and (stringp accent)
+                 (stringp background)
+                 (stringp foreground)
+                 (color-defined-p accent)
+                 (color-defined-p background)
+                 (color-defined-p foreground))
+        (set-face-attribute 'corfu-current nil
+                            :background (doom-blend accent background
+                                                    (if light-p 0.18 0.35))
+                            :foreground foreground
+                            :extend t)
+        (set-face-attribute 'corfu-annotations nil
+                            :foreground (doom-blend foreground background 0.9))))))
+
 (defun my/dev-org-font-h ()
   "Apply an Org font without modifying the global fontset."
   (when (bound-and-true-p my/dev-org-font-cookie)
@@ -176,6 +211,11 @@ Preserve the current font on RELOAD and while a size adjustment is active."
 (when (fboundp 'doom-init-fonts-h)
   (advice-add 'doom-init-fonts-h :before #'my/dev-select-doom-fonts-h))
 (my/dev-select-doom-fonts-h)
+(add-hook 'doom-load-theme-hook #'my/dev-ui-field-weight-h)
+(my/dev-ui-field-weight-h)
+(add-hook 'doom-load-theme-hook #'my/dev-ui-corfu-faces-h)
+(after! corfu
+  (my/dev-ui-corfu-faces-h))
 (when-let ((directory (my/dev-existing-notes-directory)))
   (setq org-directory directory))
 (unless (eq command-error-function #'my/org-command-error-logger)
