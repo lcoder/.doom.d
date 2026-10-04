@@ -71,14 +71,26 @@
 (after! lsp-mode (+local-languages--install-compat 'lsp-mode))
 (after! eglot (+local-languages--install-compat 'eglot))
 
+(defun +local-languages--rust-condition-gap-p (node parent bol &rest _)
+  "Match an empty Rust line between an if condition and its body."
+  (and (null node)
+       (equal (treesit-node-type parent) "if_expression")
+       (when-let* ((condition (treesit-node-child-by-field-name parent "condition"))
+                   (body (treesit-node-child-by-field-name parent "consequence")))
+         (and (>= bol (treesit-node-end condition))
+              (< bol (treesit-node-start body))))))
+
 (defun +local-languages--rust-indent-setup-h ()
-  "Align a Rust block on its own line with the statement that owns it."
+  "Align Rust blocks and indent empty lines following if conditions."
   (when (and (derived-mode-p 'rust-ts-mode)
              (eq indent-line-function #'treesit-indent)
              (boundp 'treesit-simple-indent-override-rules))
     (setq-local treesit-simple-indent-override-rules
                 (copy-tree treesit-simple-indent-override-rules))
     (cl-pushnew '((node-is "block") parent-bol 0)
+                (alist-get 'rust treesit-simple-indent-override-rules)
+                :test #'equal)
+    (cl-pushnew '(+local-languages--rust-condition-gap-p parent-bol rust-ts-indent-offset)
                 (alist-get 'rust treesit-simple-indent-override-rules)
                 :test #'equal)))
 
