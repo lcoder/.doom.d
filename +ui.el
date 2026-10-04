@@ -316,6 +316,10 @@ Preserve the current font on RELOAD and while a size adjustment is active."
   (when (fboundp 'dirvish--redisplay)
     (advice-add 'dirvish--redisplay :around #'my/dirvish-ignore-missing-filename-a)))
 
+;; Show signature help only when explicitly requested.
+(after! lsp-mode
+  (setq lsp-signature-auto-activate nil))
+
 ;; Keep code lenses on their own visual line so wrapping cannot obscure indentation.
 (after! lsp-lens
   (setq lsp-lens-place-position 'above-line))
