@@ -18,7 +18,21 @@
 
 使用空格和标准 Emacs Lisp 缩进（函数体缩进两个空格），并通过 `indent-region` 调整缩进。保留模块文件头部的 lexical-binding 声明。名称采用 kebab-case（小写单词以连字符分隔）；模块功能使用 `+local-<module>-` 前缀，个人偏好使用 `my/` 前缀，内部辅助函数使用 `--` 分隔。为函数和可配置变量添加文档字符串。使用 `after!` 和 `use-package!` 配置软件包。确保钩子、函数增强（advice）、定时器和按键绑定可以安全地重新加载，不会重复注册。
 
-所有必要的 Elisp 求值都使用 `emacsclient`；保持用户现有的图形界面会话运行。
+所有必要的 Elisp 求值都使用 `emacsclient`；保持用户现有的图形界面和后台共享会话运行。
+
+## 本机 Emacs daemon 与 Git 编辑器
+
+2026-10-05 已将本机切换为 Emacs Plus 31.1 的常驻 daemon。以下是本机运行约定，其他机器使用前应核对安装路径与服务状态：
+
+- 使用用户级 Homebrew 服务 `emacs-plus@31`，登录时运行 `emacs --fg-daemon`；服务已启用 `RunAtLoad` 和 `KeepAlive`。daemon 的启动与恢复统一由此服务管理，不另建重复的启动服务。
+- 日常图形入口为 `/Applications/Emacs Client.app`，Dock 已替换为该客户端。终端和图形客户端连接默认名为 `server` 的同一个 Server，共享缓冲区、配置和运行中的任务。
+- 本机客户端通过 `/opt/homebrew/bin/emacsclient -c -n` 创建图形窗口，再通过 Elisp 聚焦窗口；已移除包装器中的 `open -a Emacs`，避免另起普通 Emacs 进程。本机启动器源码位于 `~/.local/share/emacs-client/launcher.applescript`，应用升级或替换后应检查这一行为。
+- Git 全局 `core.editor` 已设为 `/opt/homebrew/bin/emacsclient -t`。Git 编辑器不使用 `-n`，须等待编辑完成；也不使用 `-a ""`，客户端只连接现有 Server。
+- `git commit` / `git commit --amend` 在当前终端编辑提交信息；Doom/Evil 中使用 `:wq` 保存并完成编辑。取消可使用 `M-x server-edit-abort`。不要因配置了编辑器而自动执行实际项目的提交或 amend。
+- 关闭客户端窗口不会结束 daemon；重新打开客户端可继续使用同一会话。不要将普通 `Emacs.app` 作为日常启动入口。
+- 使用 `brew services info emacs-plus@31 --json` 查看服务状态。启动使用 `brew services start emacs-plus@31`，重启使用 `brew services restart emacs-plus@31`，停止使用 `brew services stop emacs-plus@31`；重启或停止会结束整个共享会话，必须先确认保存状态，并取得用户对结束会话的明确授权。
+
+本次验收已在临时仓库验证 `:wq` 完成 amend、取消编辑后提交不变，以及文件打开、图形窗口关闭/重开均复用同一 daemon。提供标准 xterm 协议回应的自动化终端验收测得进入编辑界面约 0.85 秒；这不是 Ghostty 实际交互耗时。登录启动配置已检查，实际退出并重新登录后的启动行为尚未实测。验收记录与回退信息位于 `~/.local/state/emacs-daemon-migration/`，不放入仓库。
 
 ## 提交与拉取请求规范
 
