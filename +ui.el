@@ -56,6 +56,84 @@
         (set-face-attribute 'corfu-annotations nil
                             :foreground (doom-blend foreground background 0.9))))))
 
+;; Zen: keep surrounding code readable and focus Rust on whole definitions.
+(defcustom my/zen-focus-foreground-ratio 0.6
+  "Proportion of the theme foreground retained in unfocused text."
+  :type 'float
+  :group 'faces)
+
+(defvar-local my/zen-focus--previous-thing nil
+  "Localness and value of the focus scope before the Rust override.")
+
+(defun my/zen-focus-faces-h ()
+  "Blend unfocused text with the theme background without changing syntax faces."
+  (when (facep 'focus-unfocused)
+    (require 'color)
+    (let* ((frame (if (display-graphic-p)
+                      (selected-frame)
+                    (seq-find #'display-graphic-p (frame-list))))
+           (doom-palette-p
+            (and (fboundp 'doom-color)
+                 (seq-some (lambda (theme)
+                             (string-prefix-p "doom-" (symbol-name theme)))
+                           custom-enabled-themes)))
+           (foreground (or (and doom-palette-p (doom-color 'fg))
+                           (face-attribute 'default :foreground frame t)))
+           (background (or (and doom-palette-p (doom-color 'bg))
+                           (face-attribute 'default :background frame t))))
+      (when (and (stringp foreground) (color-defined-p foreground)
+                 (stringp background) (color-defined-p background))
+        (let ((color
+               (apply #'color-rgb-to-hex
+                      (append
+                       (cl-mapcar (lambda (fg bg)
+                                    (+ (* fg my/zen-focus-foreground-ratio)
+                                       (* bg (- 1 my/zen-focus-foreground-ratio))))
+                                  (color-name-to-rgb foreground)
+                                  (color-name-to-rgb background))
+                       '(2)))))
+          (set-face-attribute 'focus-unfocused nil :foreground color :inherit nil)
+          (set-face-attribute 'focus-unfocused t :foreground color :inherit nil))))))
+
+(defun my/zen-rust-definition-bounds ()
+  "Return the native Rust definition at point, or the current line as a fallback."
+  (save-excursion
+    (save-match-data
+      (let* ((origin (point))
+             (bounds (condition-case nil
+                         (bounds-of-thing-at-point 'defun)
+                       (error nil))))
+        (if (and bounds (<= (car bounds) origin) (<= origin (cdr bounds)))
+            bounds
+          (cons (line-beginning-position)
+                (min (point-max) (1+ (line-end-position)))))))))
+
+(defun my/zen-rust-focus-h ()
+  "Use native Rust definition bounds while Focus is enabled, then restore its scope."
+  (when (derived-mode-p 'rust-mode 'rustic-mode 'rust-ts-mode)
+    (if (bound-and-true-p focus-mode)
+        (unless my/zen-focus--previous-thing
+          (setq-local my/zen-focus--previous-thing
+                      (cons (local-variable-p 'focus-current-thing)
+                            focus-current-thing))
+          (setq-local focus-current-thing 'my/zen-rust-definition))
+      (when my/zen-focus--previous-thing
+        (if (car my/zen-focus--previous-thing)
+            (setq-local focus-current-thing (cdr my/zen-focus--previous-thing))
+          (kill-local-variable 'focus-current-thing))
+        (kill-local-variable 'my/zen-focus--previous-thing)))))
+
+(after! focus
+  (put 'my/zen-rust-definition 'bounds-of-thing-at-point
+       #'my/zen-rust-definition-bounds)
+  (add-hook 'focus-mode-hook #'my/zen-rust-focus-h)
+  (my/zen-focus-faces-h)
+  (dolist (buffer (buffer-list))
+    (with-current-buffer buffer
+      (when (bound-and-true-p focus-mode)
+        (my/zen-rust-focus-h)
+        (focus-update)))))
+
 (defun my/dev-org-font-h ()
   "Apply an Org font without modifying the global fontset."
   (when (bound-and-true-p my/dev-org-font-cookie)
@@ -214,6 +292,7 @@ Preserve the current font on RELOAD and while a size adjustment is active."
 (add-hook 'doom-load-theme-hook #'my/dev-ui-field-weight-h)
 (my/dev-ui-field-weight-h)
 (add-hook 'doom-load-theme-hook #'my/dev-ui-corfu-faces-h)
+(add-hook 'doom-load-theme-hook #'my/zen-focus-faces-h)
 (after! corfu
   (my/dev-ui-corfu-faces-h))
 (when-let ((directory (my/dev-existing-notes-directory)))
