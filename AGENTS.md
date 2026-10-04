@@ -28,6 +28,7 @@
 - 日常图形入口为 `/Applications/Emacs Client.app`，Dock 已替换为该客户端。终端和图形客户端连接默认名为 `server` 的同一个 Server，共享缓冲区、配置和运行中的任务。
 - 本机客户端通过 `/opt/homebrew/bin/emacsclient -c -n` 创建图形窗口，再通过 Elisp 聚焦窗口；已移除包装器中的 `open -a Emacs`，避免另起普通 Emacs 进程。本机启动器源码位于 `~/.local/share/emacs-client/launcher.applescript`，应用升级或替换后应检查这一行为。
 - Git 全局 `core.editor` 已设为 `/opt/homebrew/bin/emacsclient -t`。Git 编辑器不使用 `-n`，须等待编辑完成；也不使用 `-a ""`，客户端只连接现有 Server。
+- Ghostty/tmux 支持真彩色，但 daemon 下的终端客户端曾只识别到 256 色，导致 Moonlight 的背景与高亮行被近似为深蓝和青色。已在本机 `tmux-256color` terminfo 中补充 Emacs 的 `setf24` / `setb24` 能力；源码位于 `~/.local/share/emacs-client/terminfo/tmux-256color.src`，使用 `/usr/bin/tic -x -o ~/.terminfo ~/.local/share/emacs-client/terminfo/tmux-256color.src` 编译。编译结果保存在仓库之外。自动化终端验收确认支持 16777216 色，背景为主题原色 `#212337`，高亮行为 `#2f334d`；Ghostty 实际视觉效果仍需用户确认。处理终端配色问题时先检查颜色能力，不通过硬编码 face 颜色掩盖降级问题。
 - `git commit` / `git commit --amend` 在当前终端编辑提交信息；Doom/Evil 中使用 `:wq` 保存并完成编辑。取消可使用 `M-x server-edit-abort`。不要因配置了编辑器而自动执行实际项目的提交或 amend。
 - 关闭客户端窗口不会结束 daemon；重新打开客户端可继续使用同一会话。不要将普通 `Emacs.app` 作为日常启动入口。
 - 使用 `brew services info emacs-plus@31 --json` 查看服务状态。启动使用 `brew services start emacs-plus@31`，重启使用 `brew services restart emacs-plus@31`，停止使用 `brew services stop emacs-plus@31`；重启或停止会结束整个共享会话，必须先确认保存状态，并取得用户对结束会话的明确授权。
