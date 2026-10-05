@@ -56,8 +56,9 @@
          (and (memq (plist-get current :status) '(ready unmanaged remote))
               (equal (plist-get current :generation) (plist-get context :generation))))))
 
-(defun +local-save-format--request-format (formatters function)
-  "Prepare FORMATTERS then call FUNCTION only for the latest unchanged request."
+(defun +local-save-format--request-format (formatters function &optional resolve)
+  "Prepare FORMATTERS then call FUNCTION for the latest unchanged request.
+When RESOLVE is non-nil, reselect automatic formatters after environment readiness."
   (let* ((buffer (current-buffer))
          (initial-context (+local-save-format--context (+local-save-format--source-directory)))
          (request (list :file buffer-file-name :tick (buffer-chars-modified-tick)
@@ -65,29 +66,47 @@
                                       (plist-get initial-context :generation))))
          (selection (or +local-save-format--selection (list :formatters formatters))))
     (setq +local-save-format--request request)
-    (+local-save-format--prepare
-     formatters
-     (lambda (context ready)
-       (when (buffer-live-p buffer)
-         (with-current-buffer buffer
-           (if (not ready)
-               (when (eq request +local-save-format--request)
-                 (+local-save-format--notice
-                  (or (plist-get context :reason) "项目工具尚不可用；内容已普通保存。")))
-             (when (+local-save-format--request-valid-p request context)
-               (setq +local-save-format--request nil +local-save-format--last-notice nil)
-               (let ((+local-save-format--prepared t)
-                     (+local-save-format--prepared-selection selection)
-                     (+local-save-format--prepared-resources
-                      (list :rust-metadata +local-save-format--rust-metadata
-                            :dart-stdin +local-save-format--dart-stdin-supported))
-                     (current-prefix-arg nil))
-                 (+local-save-format--call-context
-                  context
-                  (lambda ()
-                    (let ((default-directory (or (plist-get selection :directory)
-                                                 (+local-save-format--source-directory))))
-                      (funcall function)))))))))))))
+    (cl-labels
+        ((finish (context ready)
+           (when (buffer-live-p buffer)
+             (with-current-buffer buffer
+               (if (not ready)
+                   (when (eq request +local-save-format--request)
+                     (+local-save-format--notice
+                      (or (plist-get context :reason) "项目工具尚不可用；内容已普通保存。")))
+                 (when (+local-save-format--request-valid-p request context)
+                   (setq +local-save-format--request nil +local-save-format--last-notice nil)
+                   (let ((+local-save-format--prepared t)
+                         (+local-save-format--prepared-selection selection)
+                         (+local-save-format--prepared-resources
+                          (list :rust-metadata +local-save-format--rust-metadata
+                                :dart-stdin +local-save-format--dart-stdin-supported))
+                         (current-prefix-arg nil))
+                     (+local-save-format--call-context
+                      context
+                      (lambda ()
+                        (let ((default-directory (or (plist-get selection :directory)
+                                                     (+local-save-format--source-directory))))
+                          (funcall function))))))))))
+         (prepare (context)
+           (when (buffer-live-p buffer)
+             (with-current-buffer buffer
+               (cond
+                ((not (memq (plist-get context :status) '(ready unmanaged remote)))
+                 (finish context nil))
+                ((+local-save-format--request-valid-p request context)
+                 (when resolve
+                   (+local-save-format--call-context
+                    context
+                    (lambda ()
+                      (setq formatters (apheleia--get-formatters)
+                            selection +local-save-format--selection))))
+                 (if formatters
+                     (+local-save-format--prepare formatters #'finish)
+                   (setq +local-save-format--request nil))))))))
+      (if (and (+local-save-format--env-p) (fboundp '+local-env-ensure))
+          (+local-env-ensure (+local-save-format--source-directory) #'prepare)
+        (prepare initial-context)))))
 
 (defun +local-save-format--after-save-a (original &rest args)
   "Write first, defer prerequisite discovery, then reuse native guarded formatting."
@@ -99,8 +118,11 @@
    ((or (not (+local-save-format--env-p))
         (file-remote-p (or buffer-file-name default-directory)))
     (apply original args))
-   (t (when-let ((formatters (apheleia--get-formatters)))
-        (+local-save-format--request-format formatters (lambda () (apply original args)))))))
+   (t (let ((formatters (apheleia--get-formatters)))
+        (when (or formatters
+                  (eq (plist-get (+local-save-format--context (+local-save-format--source-directory)) :status)
+                      'pending))
+          (+local-save-format--request-format formatters (lambda () (apply original args)) t))))))
 
 (defun +local-save-format--buffer-a (original formatter &rest args)
   "Keep explicit format commands asynchronous while preparing project prerequisites."
@@ -166,8 +188,10 @@
   (unless (equal (plist-get old :generation) (plist-get new :generation))
     ;; A save made while the initial environment was pending may finish when
     ;; that first resolution becomes ready.  Already-ready generations expire.
-    (when (plist-get +local-save-format--request :generation)
-      (setq +local-save-format--request nil))
+    (when-let ((generation (plist-get +local-save-format--request :generation)))
+      ;; A newly subscribed buffer may already have selected this shared context.
+      (unless (equal generation (plist-get new :generation))
+        (setq +local-save-format--request nil)))
     (setq +local-save-format--rust-metadata nil
           +local-save-format--dart-stdin-supported nil)
     (when (and (boundp 'apheleia--current-process)

@@ -48,8 +48,14 @@
                (assoc name (alist-get key package nil nil #'equal)))
              '("dependencies" "devDependencies"))))
 
+(defun +local-save-format--mise-tool (tool)
+  "Return TOOL's cached project mise declaration through the public environment API."
+  (when (and (+local-save-format--env-p) (fboundp '+local-env-project-tool))
+    (+local-env-project-tool (concat "npm:" (plist-get (+local-save-format--adapter tool) :package))
+                             (+local-save-format--source-directory))))
+
 (defun +local-save-format-js-project ()
-  "Resolve nearest explicit JS formatter declaration, then direct dependencies.
+  "Resolve explicit JS formatter rules, direct dependencies, then mise declarations.
 At a given directory all evidence at the same priority must agree.  A nearer
 package's direct dependencies precede those of an enclosing workspace, while
 an explicit enclosing formatter config still precedes dependency inference."
@@ -65,14 +71,16 @@ an explicit enclosing formatter config still precedes dependency inference."
                              directories))
            result)
       (catch 'found
-        (dolist (priority '(config dependency))
+        (dolist (priority '(config dependency mise))
           (dolist (entry packages)
             (let ((tools
                    (cl-loop for (tool . _adapter) in +local-save-format-adapters
-                            when (if (eq priority 'config)
-                                     (+local-save-format--config-evidence
-                                      (car entry) (cdr entry) tool)
-                                   (+local-save-format--dependency-evidence (cdr entry) tool))
+                            when (pcase priority
+                                   ('config (+local-save-format--config-evidence
+                                             (car entry) (cdr entry) tool))
+                                   ('dependency (+local-save-format--dependency-evidence (cdr entry) tool))
+                                   ('mise (equal (car entry)
+                                                 (plist-get (+local-save-format--mise-tool tool) :directory))))
                             collect tool)))
               (when tools
                 (setq result
@@ -149,8 +157,9 @@ an explicit enclosing formatter config still precedes dependency inference."
 
 (defun +local-save-format-tool-executable (tool)
   "Find only an already installed project TOOL; never install or download it.
-Oxfmt and Biome must be installed in the project.  Prettier may use an
-installed language default from PATH when no project dependency is present."
+Oxfmt and Biome use project dependencies or explicitly declared mise tools.
+Prettier may use an installed language default from PATH when no project
+dependency is present."
   (let* ((adapter (+local-save-format--adapter tool))
          (name (plist-get adapter :executable))
          (local (cl-loop for directory in (+local-save-format--directories
@@ -158,20 +167,26 @@ installed language default from PATH when no project dependency is present."
                          for candidate = (expand-file-name
                                           (concat "node_modules/.bin/" name) directory)
                          when (file-executable-p candidate) return candidate))
+         (mise (when (and (+local-save-format--env-p)
+                          (fboundp '+local-env-project-tool-executable))
+                 (+local-env-project-tool-executable
+                  (concat "npm:" (plist-get adapter :package)) name
+                  (+local-save-format--source-directory))))
          (global (and (eq tool 'prettier)
                       (plist-get +local-save-format--selection :language-default)
                       (not (+local-save-format--project-declares-tool-p tool))
                       (executable-find name))))
-    (or local global (error "项目中未安装 %s；已保留普通保存内容" name))))
+    (or local mise global (error "项目中未安装 %s；已保留普通保存内容" name))))
 
 (defun +local-save-format--project-declares-tool-p (tool)
   "Whether any applicable project directory explicitly declares TOOL."
-  (cl-some (lambda (directory)
-             (let ((package (+local-save-format--read-json
-                             (expand-file-name "package.json" directory))))
-               (or (+local-save-format--config-evidence directory package tool)
-                   (+local-save-format--dependency-evidence package tool))))
-           (+local-save-format--directories (+local-save-format--source-directory))))
+  (or (+local-save-format--mise-tool tool)
+      (cl-some (lambda (directory)
+                 (let ((package (+local-save-format--read-json
+                                 (expand-file-name "package.json" directory))))
+                   (or (+local-save-format--config-evidence directory package tool)
+                       (+local-save-format--dependency-evidence package tool))))
+               (+local-save-format--directories (+local-save-format--source-directory)))))
 
 (defun +local-save-format--source-directory ()
   "Return the actual file's directory, independently of formatter working cwd."

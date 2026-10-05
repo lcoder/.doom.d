@@ -3,8 +3,9 @@
 ;;;###autoload
 (defun +local-env-context (&optional directory)
   "Return DIRECTORY's cached environment, without I/O or starting a process.
-The result has :directory, :status, :process-environment, :exec-path,
-:generation and :reason.  Status is pending, ready, unmanaged, unavailable,
+The result has :directory, :status, :process-environment, :exec-path, :tools,
+:generation and :reason.  Tools describe selected mise versions and sources.
+Status is pending, ready, unmanaged, unavailable,
 or remote.  Unknown local directories are pending; call `+local-env-ensure'
 to prepare them.  Environment values are private, in-memory data."
   (let* ((directory (file-name-as-directory
@@ -19,13 +20,14 @@ to prepare them.  Environment values are private, in-memory data."
       (list :directory directory :status (or (plist-get context :status) 'pending)
             :generation (or (plist-get context :generation) 0)
             :reason (plist-get context :reason)
+            :tools (copy-tree (plist-get context :tools))
             :process-environment
             (copy-sequence (or (plist-get context :process-environment)
                                +local-env--base-environment
                                (default-value 'process-environment)))
             :exec-path (copy-sequence (or (plist-get context :exec-path)
-                                         +local-env--base-exec-path
-                                         (default-value 'exec-path)))))))
+                                          +local-env--base-exec-path
+                                          (default-value 'exec-path)))))))
 
 ;;;###autoload
 (defun +local-env-ensure (&optional directory callback force)
@@ -57,6 +59,42 @@ An explicitly requested other directory never changes the editing buffer."
         (let ((path (expand-file-name override)))
           (and (file-executable-p path) (not (file-directory-p path)) path))
       (executable-find name))))
+
+;;;###autoload
+(defun +local-env-project-tool (name &optional directory)
+  "Return cached mise tool NAME declared within DIRECTORY's project.
+Global defaults do not constitute a project declaration.  No CLI is invoked."
+  (let* ((directory (+local-env--directory (or directory default-directory)))
+         (boundary (or (locate-dominating-file directory ".git")
+                       (file-name-as-directory (expand-file-name "~"))))
+         (tool (cl-find name (plist-get (+local-env-context directory) :tools)
+                        :key (lambda (entry) (plist-get entry :name)) :test #'equal))
+         (source (plist-get tool :source)))
+    (when source
+      (catch 'found
+        (dolist (ancestor (+local-env--ancestors directory))
+          ;; The home-level .config/mise directory contains personal defaults.
+          (when (equal ancestor (file-name-as-directory (expand-file-name "~")))
+            (throw 'found nil))
+          (when (or (equal (file-name-directory source) (file-truename ancestor))
+                    (cl-some (lambda (relative)
+                               (file-in-directory-p source (expand-file-name relative ancestor)))
+                             '(".mise/" ".config/mise/" "mise/")))
+            (throw 'found (plist-put (copy-tree tool) :directory ancestor)))
+          (when (equal ancestor boundary) (throw 'found nil)))))))
+
+;;;###autoload
+(defun +local-env-project-tool-executable (tool name &optional directory)
+  "Find NAME only inside the selected, installed project mise TOOL.
+The cached environment must be ready; unrelated executables on PATH are ignored."
+  (let* ((context (+local-env-context directory))
+         (entry (+local-env-project-tool tool directory))
+         (installation (plist-get entry :install-directory)))
+    (when (and (eq (plist-get context :status) 'ready)
+               (plist-get entry :installed) installation)
+      (when-let ((executable (+local-env-call-with-context context #'executable-find name)))
+        (when (file-in-directory-p (file-truename executable) (file-truename installation))
+          executable)))))
 
 ;;;###autoload
 (defun +local-env-refresh ()

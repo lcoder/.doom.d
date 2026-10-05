@@ -220,18 +220,40 @@ no stdout, stderr, command arguments, or environment values appear in errors."
       (setenv (car entry) (cdr entry)))
     (+local-env--safe-environment process-environment)))
 
+(defun +local-env--tools (entries directory)
+  "Normalize selected mise tool metadata without exposing configuration values."
+  (let (tools)
+    (dolist (entry entries)
+      (unless (and (consp entry) (stringp (car entry)) (listp (cdr entry)))
+        (error "Invalid tool response"))
+      (dolist (version (cdr entry))
+        (let ((number (alist-get "version" version nil nil #'equal))
+              (source (alist-get "path" (alist-get "source" version nil nil #'equal) nil nil #'equal))
+              (installation (alist-get "install_path" version nil nil #'equal)))
+          (unless (and (stringp number) (or (null source) (stringp source))
+                       (or (null installation) (stringp installation)))
+            (error "Invalid tool version"))
+          (push (list :name (car entry) :version number
+                      :source (when source (file-truename (expand-file-name source directory)))
+                      :install-directory (when installation
+                                           (+local-env--directory (expand-file-name installation directory)))
+                      :installed (eq (alist-get "installed" version nil nil #'equal) t))
+                tools))))
+    (nreverse tools)))
+
 (defun +local-env--copy-context (context directory)
   "Copy a public CONTEXT for its actual caller DIRECTORY."
   (let ((copy (copy-sequence context)))
     (setq copy (plist-put copy :directory directory))
     (setq copy (plist-put copy :process-environment
-                         (copy-sequence (plist-get context :process-environment))))
+                          (copy-sequence (plist-get context :process-environment))))
+    (setq copy (plist-put copy :tools (copy-tree (plist-get context :tools))))
     (plist-put copy :exec-path (copy-sequence (plist-get context :exec-path)))))
 
 (defun +local-env--semantic-context (context)
-  "Return only state affecting consumer processes, ignoring metadata."
+  "Return state affecting processes and selected tool versions."
   (list (plist-get context :status) (plist-get context :process-environment)
-        (plist-get context :exec-path)))
+        (plist-get context :exec-path) (plist-get context :tools)))
 
 (defun +local-env--subscribe (key directory)
   "Attach the current file buffer when DIRECTORY is its real component directory."
@@ -289,7 +311,7 @@ no stdout, stderr, command arguments, or environment values appear in errors."
            (fresh (+local-env--describe directory))
            (sources (plist-get request :sources))
            (files (delete-dups (append (plist-get fresh :files) sources
-                                      (plist-get (+local-env--references sources) :files))))
+                                       (plist-get (+local-env--references sources) :files))))
            (current (+local-env--fingerprint files)))
       (if (or (not (equal key (plist-get fresh :key)))
               (not (equal (plist-get request :fingerprint)
@@ -320,6 +342,7 @@ no stdout, stderr, command arguments, or environment values appear in errors."
                               :reason (if environment reason "mise 环境响应无效")
                               :process-environment (or environment +local-env--base-environment)
                               :exec-path paths
+                              :tools (copy-tree (plist-get request :tools))
                               :generation (or (plist-get old :generation) 0))))
           (unless (equal (+local-env--semantic-context old) (+local-env--semantic-context context))
             (setf (plist-get context :generation) (cl-incf +local-env--generation)))
@@ -353,17 +376,21 @@ no stdout, stderr, command arguments, or environment values appear in errors."
            (when (eq request (gethash key +local-env--requests))
              (setf (plist-get request :cancel)
                    (+local-env--query mise args directory
-                                     (lambda (ok data)
-                                       (when (eq request (gethash key +local-env--requests))
-                                         (condition-case nil (funcall callback ok data)
-                                           (error (unavailable)))))))))
+                                      (lambda (ok data)
+                                        (when (eq request (gethash key +local-env--requests))
+                                          (condition-case nil (funcall callback ok data)
+                                            (error (unavailable)))))))))
          (unavailable ()
            (+local-env--settle key request 'unavailable nil
-                              "mise 解析失败；请检查本机工具版本或项目配置的信任状态"))
-         (environment (ok missing)
+                               "mise 解析失败；请检查本机工具版本或项目配置的信任状态"))
+         (tools (ok data)
+           (when ok
+             (setf (plist-get request :tools) (+local-env--tools data directory)))
            (cond ((not ok) (unavailable))
-                 (missing (+local-env--settle key request 'unavailable nil
-                                             "项目声明的工具版本未安装；安装后环境会自动恢复"))
+                 ((cl-some (lambda (tool) (not (plist-get tool :installed)))
+                           (plist-get request :tools))
+                  (+local-env--settle key request 'unavailable nil
+                                      "项目声明的工具版本未安装；安装后环境会自动恢复"))
                  (t (query '("env" "--json")
                            (lambda (success data)
                              (if success (+local-env--settle key request 'ready data)
@@ -372,16 +399,16 @@ no stdout, stderr, command arguments, or environment values appear in errors."
            (let* ((paths (if ok
                              (delq nil (mapcar (lambda (entry)
                                                  (when-let ((path (and (listp entry)
-                                                                      (alist-get "path" entry nil nil #'equal))))
+                                                                       (alist-get "path" entry nil nil #'equal))))
                                                    (let ((file (expand-file-name path directory)))
                                                      (unless (file-remote-p file) (file-truename file))))) data))
                            (cl-remove-if-not #'file-regular-p (plist-get descriptor :files))))
                   (files (delete-dups (append (plist-get descriptor :files) paths
-                                             (plist-get (+local-env--references paths) :files)))))
+                                              (plist-get (+local-env--references paths) :files)))))
              (setf (plist-get request :sources) paths
                    (plist-get request :watch-files) files
                    (plist-get request :fingerprint) (+local-env--fingerprint files))
-             (query '("ls" "--current" "--missing" "--json") #'environment))))
+             (query '("ls" "--current" "--json") #'tools))))
       (cond
        ((plist-get descriptor :error)
         (+local-env--settle key request 'unavailable nil (plist-get descriptor :error)))
@@ -393,7 +420,7 @@ no stdout, stderr, command arguments, or environment values appear in errors."
                                 (string-match-p "mise.*\\.toml\\|\\.tool-versions\\'" file)))
                          (plist-get descriptor :files))))
           (+local-env--settle key request (if declared 'unavailable 'unmanaged) nil
-                             (when declared "未找到 mise；请更新本机 Doom 环境缓存或本机工具覆盖"))))))))
+                              (when declared "未找到 mise；请更新本机 Doom 环境缓存或本机工具覆盖"))))))))
 
 (defun +local-env--ensure (directory callback force)
   "Internal asynchronous service entrypoint for DIRECTORY."
@@ -434,8 +461,9 @@ no stdout, stderr, command arguments, or environment values appear in errors."
        (t
         (let ((callbacks (append (when entry (list entry)) (plist-get request :callbacks))))
           (when-let ((cancel (plist-get request :cancel))) (funcall cancel))
+          ;; Adding a plist key can change identity and invalidate callback guards.
           (setq request (list :serial (cl-incf +local-env--serial) :directory directory
-                              :callbacks callbacks :sources nil :cancel nil
+                              :callbacks callbacks :sources nil :tools nil :cancel nil
                               :watch-files watch-files :fingerprint fingerprint))
           (puthash key request +local-env--requests)
           (setf (plist-get record :context)
