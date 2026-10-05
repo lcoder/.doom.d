@@ -22,9 +22,11 @@
         (setq doom-font (font-spec :family family :size my/dev-font-size))))))
 
 (defun my/dev-ui-field-weight-h ()
-  "Use a medium weight for field names while preserving other face attributes."
-  (when (facep 'font-lock-property-name-face)
-    (set-face-attribute 'font-lock-property-name-face nil :weight 'medium)))
+  "Use medium weight for field names and active snippet fields, keeping their colors."
+  (dolist (face '(font-lock-property-name-face yas-field-highlight-face))
+    (when (facep face)
+      (set-face-attribute face nil :weight 'medium)
+      (set-face-attribute face t :weight 'medium))))
 
 (defun my/dev-ui-corfu-faces-h ()
   "Keep Corfu selection and annotations readable in dark and light themes."
@@ -291,6 +293,8 @@ Preserve the current font on RELOAD and while a size adjustment is active."
 (my/dev-select-doom-fonts-h)
 (add-hook 'doom-load-theme-hook #'my/dev-ui-field-weight-h)
 (my/dev-ui-field-weight-h)
+(after! yasnippet
+  (my/dev-ui-field-weight-h))
 (add-hook 'doom-load-theme-hook #'my/dev-ui-corfu-faces-h)
 (add-hook 'doom-load-theme-hook #'my/zen-focus-faces-h)
 (after! corfu
