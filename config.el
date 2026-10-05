@@ -62,6 +62,45 @@
 (use-package! smartparens
   :demand t)
 
+;; 已有的空括号也能用回车展开；缩进由当前语言模式决定。
+(defun my/empty-code-pair-bounds ()
+  "Return the bounds inside an empty code pair on the current line."
+  (when (and (derived-mode-p 'prog-mode)
+             (bound-and-true-p smartparens-mode)
+             (not (nth 8 (syntax-ppss))))
+    (save-excursion
+      (let* ((start (progn (skip-chars-backward " \t") (point)))
+             (open (char-before))
+             (end (progn (skip-chars-forward " \t") (point))))
+        (when (and (memq open '(?\( ?\[ ?\{))
+                   (eq (char-after) (matching-paren open)))
+          (cons start end))))))
+
+(defun my/expand-empty-code-pair-on-newline-a (fn &rest args)
+  "Expand an empty code pair when FN inserts a single interactive newline."
+  (let ((bounds (and (memq this-command
+                           '(newline newline-and-indent
+                             electric-newline-and-maybe-indent))
+                     (memq last-command-event '(10 13 return))
+                     (or (null (car args)) (equal (car args) 1))
+                     (not (use-region-p))
+                     (my/empty-code-pair-bounds))))
+    (when bounds
+      (delete-region (car bounds) (cdr bounds)))
+    (prog1 (apply fn args)
+      (when bounds
+        (save-excursion
+          (newline)
+          (indent-according-to-mode))
+        (indent-according-to-mode)))))
+
+(after! smartparens
+  ;; 替换只在刚插入括号后生效的 RET 延迟处理，避免重复换行。
+  (dolist (pair '("(" "[" "{"))
+    (sp-local-pair 'prog-mode pair nil
+                   :post-handlers '(:rem ("||\n[i]" "RET"))))
+  (advice-add #'newline :around #'my/expand-empty-code-pair-on-newline-a))
+
 ;; smartSelect: Alt+o 扩大选区, Alt+p 缩小选区（全局）
 (use-package! expreg
   :commands (expreg-expand expreg-contract)
