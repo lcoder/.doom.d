@@ -49,7 +49,44 @@
 
 共享文件不记录用户名、Homebrew 前缀、项目绝对路径、工具版本目录或机器身份。语法库、下载的语言服务、日志和环境缓存留在本机。
 
+## 本机 Homebrew daemon 与客户端
+
+本机使用稳定版 `emacs-plus@31` 源码公式，由公式提供的用户级 Homebrew 服务管理 daemon。安装前确保 Xcode 与 Command Line Tools 满足当前 macOS 的 Homebrew 构建要求；依赖由 Homebrew 安装。
+
+```sh
+brew trust d12frosted/emacs-plus
+brew tap d12frosted/emacs-plus
+brew install emacs-plus@31
+doom sync --env --rebuild -U
+brew services start emacs-plus@31
+```
+
+日常通过 Dock、Spotlight 或 Finder 的 Emacs Client 打开窗口，终端和图形界面共享默认 `server`。关闭窗口保留 daemon 和缓冲区。Git 编辑器等待保存或取消；`:wq` 保存完成编辑，`M-x server-edit-abort` 取消。不要用普通 Emacs 应用作为日常入口。
+
+本机客户端基于公式应用的副本，使用稳定的 `opt` 路径，只连接已有 Server；服务负责启动和恢复。公式默认客户端的按需启动回退已在本机副本中移除。升级后若替换客户端副本，重新应用保存在本机的启动脚本并签名。其他机器须核对自己的客户端行为；具体本机路径和服务约定位于 `AGENTS.md`。
+
+Ghostty 和 tmux 的 terminfo 安装在用户目录，使 daemon 能查找到终端定义和真彩色能力，不依赖终端应用临时注入环境。原生模块和语法库在切换 Emacs 构建后重新检查或构建；环境缓存、客户端应用、终端定义与备份留在仓库外。
+
+使用 `brew services info emacs-plus@31 --json` 检查服务。升级、重启或停止前保存工作，并取得结束共享会话的明确授权。登录启动配置已验证；真实注销再登录、实际键入和视觉体验仍需人工确认。本次未改变全部文件类型的默认应用关联。
+
 ## 日常操作
+
+文件打开入口支持粘贴带位置的本地纯路径，例如 `/path/to/index.tsx:318:13:div`：
+回车后打开文件并跳到第 318 行、第 13 个字符，末尾的 `div` 等标签会被忽略。
+也支持 `路径:行号` 和 `路径:行号:列号`；行列从 1 开始，省略列号时到行首，
+超过内容范围时停在文件末尾或该行末尾，不插入文字。
+
+此规则统一用于 `SPC .`、`SPC f f`、`C-x C-f`，以及原生其他窗口、其他框架和只读打开；
+`SPC SPC` / `SPC p f` 项目文件、`SPC f F` 目录文件、`SPC f r` 最近文件及 Consult
+文件查找也支持。带位置的有效路径可以直接打开，即使不在当前候选列表或项目中。
+支持绝对路径、`~/` 和相对路径；相对路径使用该入口原有的项目根或查找目录。
+
+完整输入若是已有文件名，按真实文件名打开；位置无效或目标文件不存在时提示错误。
+普通路径仍可新建文件。保存、重命名、删除、缓冲区切换和全文搜索不使用这套输入扩展；
+远程路径、URL 和 `data-insp-path="…"` 属性包装不在支持范围内。
+位置验证只在确认输入或打开文件时执行；普通输入不增加文件存在检查，
+这套扩展不新增逐键磁盘检查、项目扫描、同步外部命令或后台任务。
+配置可在现有会话重新加载，无需 `doom sync` 或重启 daemon。
 
 继续使用 Doom 原有 compile/recompile、Projectile 编译/测试/运行，以及语言模块已有的 Flutter 和调试入口。没有 `SPC p m` 开发菜单，不维护第二套任务历史或任务输出管理。
 
@@ -73,6 +110,31 @@ Rust 使用模式原生的函数或定义边界聚焦，不依赖 LSP 悬停范�
 - `SPC t Z` 或 `M-x +zen/toggle-fullscreen`：切换全屏专注模式，进入时收起其他窗口，退出时恢复之前的窗口布局。
 
 使用同一命令再次切换即可退出。首次启用模块后需执行 `doom sync`，保存工作并重启 Emacs 后生效。
+
+## JavaScript / TypeScript 的 Oxlint
+
+本地 `lsp-mode` 会在打开文件或连接语言服务时识别项目的 Oxlint 声明：四种默认配置名
+`.oxlintrc.json`、`.oxlintrc.jsonc`、`oxlint.config.ts`、`oxlint.config.mts`，或 `package.json`
+中的直接依赖。查找限定在 Doom 项目内，从文件所在包向项目根选择已安装的
+`node_modules/.bin/oxlint`，复用项目环境执行 `oxlint --lsp`，与 TypeScript 服务并行。
+缺失工具时提示安装项目依赖，不自动下载，也不阻止 TypeScript 服务。
+JS/JSX、TS/TSX 及 `.mjs`、`.cjs`、`.mts`、`.cts` 使用现有语言模式；语法库就绪时启用原生 Tree-sitter 模式。
+
+诊断显示在原有 LSP/Flycheck 界面；通过 `M-x lsp-execute-code-action` 手动选择修复。
+不在保存时自动修复，保存格式化继续使用项目的 Oxfmt/Apheleia 规则。Oxlint 自行读取嵌套配置、
+忽略路径与 TypeScript 配置；非标准配置名可以在目录局部变量中设置
+`+local-languages-oxlint-config-path`，路径相对于 LSP 工作区根。显式配置路径会关闭 Oxlint
+的默认及嵌套配置发现，只有确实需要自定义配置文件时才设置。
+
+ESLint 只在项目有 `eslint.config.*`、`.eslintrc*` 或 `package.json` 的 `eslintConfig` 时自动启用；
+同时配置两者的项目保留两套诊断。仅保留 ESLint 依赖不视为已配置。没有 ESLint 声明时也不自动
+运行独立的 `javascript-eslint` checker；原生 `lsp-enabled-clients`、`lsp-disabled-clients` 和
+显式 `flycheck-checker` 选择仍优先。修改声明或安装依赖后重新连接项目 LSP 即可重新识别。
+
+此接入使用现有 Emacs 会话，`doom/reload` 可重新加载，不需要新增包或重启 daemon。
+Eglot 与远程 TRAMP 不启用这套项目识别。接口依据
+[Oxlint 编辑器说明](https://oxc.rs/docs/guide/usage/linter/editors.html)及
+[LSP 配置选项](https://oxc.rs/docs/guide/usage/linter/lsp-config-reference)。
 
 ## 持续按键观察与每日复盘
 
@@ -149,7 +211,7 @@ Org 字体只修改当前缓冲区；关闭按键展示时同步停止记录。O
 | --- | --- |
 | `+ui.el` | 在 Doom 字体初始化前选择可用字体；不自行初始化 frame。 |
 | `save-format/+save.el` | 原生保存 hooks 不覆盖刚被自动保存的未修改文件；在 Apheleia 入口准备工具并继续其原生校验。 |
-| `languages/autoload/compat.el` | LSP 缺少统一的异步环境准备入口和跨环境 workspace 筛选接口；Flutter/DAP 需适配组件与异步 provider；Rustic 在 Tree-sitter 模式定位函数时需临时补齐旧语法辅助函数，当前单测试入口优先委托 rust-analyzer 的精确 Run Test 操作。仅在目标函数可用时安装。 |
+| `languages/autoload/compat.el` | LSP 缺少统一的异步环境准备入口和跨环境 workspace 筛选接口；本地 JS/TS 的 ESLint 客户端与 checker 需按项目声明筛选；Flutter/DAP 需适配组件与异步 provider；Rustic 在 Tree-sitter 模式定位函数时需临时补齐旧语法辅助函数，当前单测试入口优先委托 rust-analyzer 的精确 Run Test 操作。仅在目标函数可用时安装。 |
 | `project-commands/+commands.el` | 为原生命令临时绑定组件上下文，输出和历史继续由原生机制管理。 |
 
 生命周期依据 [Doom 官方配置文档](https://github.com/doomemacs/core/blob/master/docs/getting_started.org) 与本机安装的 Doom 实现。
