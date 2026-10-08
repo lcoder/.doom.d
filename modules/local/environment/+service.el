@@ -422,15 +422,19 @@ no stdout, stderr, command arguments, or environment values appear in errors."
           (+local-env--settle key request (if declared 'unavailable 'unmanaged) nil
                               (when declared "未找到 mise；请更新本机 Doom 环境缓存或本机工具覆盖"))))))))
 
-(defun +local-env--ensure (directory callback force)
-  "Internal asynchronous service entrypoint for DIRECTORY."
+(defun +local-env--ensure (directory callback force &optional descriptor)
+  "Internal asynchronous service entrypoint for DIRECTORY.
+DESCRIPTOR may reuse a description from the same synchronous refresh only;
+asynchronous results still require a fresh description before publication."
   (setq directory (+local-env--directory directory))
   (if (file-remote-p directory)
       (let ((context (+local-env-context directory)))
         (when callback (funcall callback context))
         context)
     (unless +local-env--base-environment (+local-env--capture-base))
-    (let* ((descriptor (+local-env--describe directory))
+    (let* ((descriptor (if (equal directory (plist-get descriptor :directory))
+                           descriptor
+                         (+local-env--describe directory)))
            (key (plist-get descriptor :key))
            (record (gethash key +local-env--cache))
            (request (gethash key +local-env--requests))

@@ -345,6 +345,11 @@
          (message "按键观察出现错误，已暂停：%s"
                   (error-message-string error-data)))))))
 
+(defun my/key-observer--periodic-save-h ()
+  "Save a nonempty batch without changing explicit checkpoint semantics."
+  (when my/key-observer--pending
+    (my/key-observer--save-h)))
+
 (defun my/key-observer--activate ()
   "Enable the shared collector without opening a Keycast display frame."
   (unless (bound-and-true-p keycast-invisible-mode)
@@ -359,7 +364,7 @@
   (my/key-observer--cancel-timer 'my/key-observer--save-timer)
   (setq my/key-observer--save-timer
         (run-at-time my/key-observer-save-interval my/key-observer-save-interval
-                     #'my/key-observer--save-h)))
+                     #'my/key-observer--periodic-save-h)))
 
 (defun my/key-observer-start ()
   "Start a fresh observation session, shared by all Emacs clients."
@@ -598,5 +603,12 @@
 (add-hook 'after-init-hook #'my/key-observer-ensure-running)
 (add-to-list 'global-mode-string '(:eval (my/key-observer--mode-line)) t)
 (when after-init-time (my/key-observer-ensure-running))
+
+;; Update the existing timer in place on reload, preserving its next deadline.
+(when (and (equal (plist-get my/key-observer--session :status) "recording")
+           (timerp my/key-observer--save-timer)
+           (memq my/key-observer--save-timer timer-list)
+           (eq (timer--function my/key-observer--save-timer) #'my/key-observer--save-h))
+  (timer-set-function my/key-observer--save-timer #'my/key-observer--periodic-save-h nil))
 
 (provide 'my-key-observer)

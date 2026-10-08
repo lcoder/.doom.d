@@ -23,7 +23,9 @@
         (+local-project--running t))
     (apply function args)))
 
-(defun +local-project--call (phase function args)
+(defun +local-project--call (phase function args &optional retry-declarations)
+  "Call native FUNCTION with ARGS in PHASE's component environment.
+RETRY-DECLARATIONS lets an interactive entry retry expired discovery failures."
   (if (or +local-project--running (file-remote-p default-directory))
       (apply function args)
     (let* ((directory (+local-project--directory))
@@ -31,8 +33,11 @@
            (context (and (+local-project--environment-p) (+local-env-context directory))))
       (+local-project--apply directory)
       (cond
-       ((not context) (+local-project--invoke directory phase function args))
+       ((not context)
+        (when retry-declarations (+local-project--retry-declarations directory nil))
+        (+local-project--invoke directory phase function args))
        ((memq (plist-get context :status) '(ready unmanaged remote))
+        (when retry-declarations (+local-project--retry-declarations directory context))
         (+local-env-call-with-context context #'+local-project--invoke directory phase function args))
        ((eq (plist-get context :status) 'pending)
         (message "正在准备当前组件环境，完成后继续原命令")
@@ -43,7 +48,9 @@
              (with-current-buffer source
                (when (equal directory (+local-project--directory))
                  (if (memq (plist-get ready :status) '(ready unmanaged))
-                     (+local-env-call-with-context ready #'+local-project--invoke directory phase function args)
+                     (progn
+                       (when retry-declarations (+local-project--retry-declarations directory ready))
+                       (+local-env-call-with-context ready #'+local-project--invoke directory phase function args))
                    (message "命令未运行：%s" (or (plist-get ready :reason) "项目环境不可用")))))))))
        (t (user-error "项目环境不可用：%s" (or (plist-get context :reason) "请补齐项目声明的工具")))))))
 
@@ -54,23 +61,23 @@ compilation buffer immediately.  Only a user command may wait for the
 asynchronous environment preparation.  Projectile already binds the context
 around its native command with `+local-project--running'."
   (if (called-interactively-p 'interactive)
-      (+local-project--call nil function args)
+      (+local-project--call nil function args t)
     (apply function args)))
 (defun +local-project-build-a (function &rest args)
-  (+local-project--call 'build function args))
+  (+local-project--call 'build function args (called-interactively-p 'interactive)))
 (defun +local-project-test-a (function &rest args)
-  (+local-project--call 'test function args))
+  (+local-project--call 'test function args (called-interactively-p 'interactive)))
 (defun +local-project-run-a (function &rest args)
-  (+local-project--call 'run function args))
+  (+local-project--call 'run function args (called-interactively-p 'interactive)))
 (defun +local-project-repeat-a (function &rest args)
-  (+local-project--call nil function args))
+  (+local-project--call nil function args (called-interactively-p 'interactive)))
 
 (defun +local-project-recompile-a (function &rest args)
   "Find the current component's output only for an interactive recompile."
   (cond
    ((not (called-interactively-p 'interactive)) (apply function args))
    ((or +local-project--running (derived-mode-p 'compilation-mode 'comint-mode))
-    (+local-project--call nil function args))
+    (+local-project--call nil function args t))
    (t
     (let* ((directory (+local-project--directory))
            (buffer (cl-find-if
@@ -81,5 +88,5 @@ around its native command with `+local-project--running'."
                              (equal (file-name-as-directory (expand-file-name default-directory)) directory))))
                     (buffer-list))))
       (if buffer
-          (with-current-buffer buffer (+local-project--call nil function args))
-        (+local-project--call nil function args))))))
+          (with-current-buffer buffer (+local-project--call nil function args t))
+        (+local-project--call nil function args t))))))

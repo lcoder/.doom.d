@@ -197,18 +197,31 @@
         ((cl-some (lambda (name) (file-exists-p (expand-file-name name directory)))
                   '("mise.toml" ".mise.toml")) "mise")))
 
-(defun +local-project--query-cleanup (entry &optional cancel)
-  "Release an owned declaration query's timer, process and output buffers."
+(defun +local-project--query-cleanup (entry &optional stop-process)
+  "Release ENTRY's timer and output buffers; STOP-PROCESS also stops its process.
+The caller owns the terminal state, including whether cancellation is a failure."
   (when (listp entry)
-    (when cancel (setf (plist-get entry :status) 'cancelled))
     (when-let ((timer (plist-get entry :timer)))
       (cancel-timer timer) (setf (plist-get entry :timer) nil))
     (when-let ((process (plist-get entry :process)))
-      (when (and cancel (process-live-p process)) (delete-process process)))
+      (when (and stop-process (process-live-p process)) (delete-process process)))
     (dolist (key '(:output :stderr))
       (when-let ((buffer (plist-get entry key)))
         (when (buffer-live-p buffer) (kill-buffer buffer))
         (setf (plist-get entry key) nil)))))
+
+(defun +local-project--query-failed (entry)
+  "Mark pending ENTRY as failed and start its retry cooldown."
+  (when (eq (plist-get entry :status) 'pending)
+    (setf (plist-get entry :status) 'failed
+          (plist-get entry :finished-at) (float-time))))
+
+(defun +local-project--retry-due-p (entry)
+  "Whether failed ENTRY may be retried by a later preparation."
+  (and (listp entry)
+       (eq (plist-get entry :status) 'failed)
+       (>= (- (float-time) (or (plist-get entry :finished-at) 0))
+           +local-project-retry-interval)))
 
 (defun +local-project--invalidate (directory)
   "Expire a component before cancelling its obsolete declaration queries."
@@ -219,6 +232,7 @@
              +local-project--queries)
     (dolist (item old)
       (remhash (car item) +local-project--queries)
+      (when (listp (cdr item)) (setf (plist-get (cdr item) :status) 'cancelled))
       (+local-project--query-cleanup (cdr item) t)))
   (remhash directory +local-project--metadata))
 
@@ -227,7 +241,9 @@
   (let ((old (hash-table-values +local-project--queries)))
     (clrhash +local-project--queries)
     (clrhash +local-project--metadata)
-    (dolist (entry old) (+local-project--query-cleanup entry t)))
+    (dolist (entry old)
+      (when (listp entry) (setf (plist-get entry :status) 'cancelled))
+      (+local-project--query-cleanup entry t)))
   ;; Before tokens were introduced, queries had no process handle in the cache.
   ;; Limit migration cleanup to this provider's old private output buffer name.
   (dolist (process (process-list))
@@ -263,8 +279,11 @@
     (when (and old (or (not (listp old))
                        (not (equal fingerprint (plist-get old :fingerprint)))
                        (not (equal generation (plist-get old :generation)))
-                       (not (equal executable (plist-get old :executable)))))
+                       (not (equal executable (plist-get old :executable)))
+                       (+local-project--retry-due-p old)))
       (remhash key +local-project--queries)
+      (when (and (listp old) (eq (plist-get old :status) 'pending))
+        (setf (plist-get old :status) 'cancelled))
       (+local-project--query-cleanup old t)
       (remhash directory +local-project--metadata)
       (dolist (buffer (buffer-list))
@@ -278,7 +297,8 @@
                           :fingerprint fingerprint :generation generation :executable executable
                           ;; Predeclare mutable fields: `setf' may otherwise
                           ;; replace the plist head and detach the cached token.
-                          :output output :stderr stderr :process nil :timer nil)))
+                          :output output :stderr stderr :process nil :timer nil
+                          :finished-at nil)))
         (puthash key entry +local-project--queries)
         (condition-case nil
             (progn
@@ -293,51 +313,70 @@
                      (lambda (process _event)
                        (when (memq (process-status process) '(exit signal))
                          (unwind-protect
-                             (when (+local-project--query-current-p key entry)
-                               (condition-case nil
-                                   (progn
-                                     (unless (zerop (process-exit-status process)) (error "Declaration probe failed"))
-                                     (let ((commands
-                                            (with-current-buffer output
-                                              (goto-char (point-min))
-                                              (let ((json-object-type 'alist) (json-key-type 'string)
-                                                    (json-array-type 'list) (json-false nil) (json-null nil))
-                                                (+local-project--query-result program (json-read))))))
-                                       (setf (plist-get entry :status) 'ready)
-                                       (puthash directory commands +local-project--metadata)
-                                       (dolist (buffer (buffer-list))
-                                         (with-current-buffer buffer
-                                           (when (equal +local-project--directory directory)
-                                             (+local-project--apply directory))))))
-                                 (error (setf (plist-get entry :status) 'failed))))
+                             (if (+local-project--query-current-p key entry)
+                                 (condition-case nil
+                                     (progn
+                                       (unless (and (eq (process-status process) 'exit)
+                                                    (zerop (process-exit-status process)))
+                                         (error "Declaration probe failed"))
+                                       (let ((commands
+                                              (with-current-buffer output
+                                                (goto-char (point-min))
+                                                (let ((json-object-type 'alist) (json-key-type 'string)
+                                                      (json-array-type 'list) (json-false nil) (json-null nil))
+                                                  (+local-project--query-result program (json-read))))))
+                                         (setf (plist-get entry :status) 'ready)
+                                         (puthash directory commands +local-project--metadata)
+                                         (dolist (buffer (buffer-list))
+                                           (with-current-buffer buffer
+                                             (when (equal +local-project--directory directory)
+                                               (+local-project--apply directory))))))
+                                   (error (+local-project--query-failed entry)))
+                               (when (and (eq entry (gethash key +local-project--queries))
+                                          (eq (plist-get entry :status) 'pending))
+                                 (setf (plist-get entry :status) 'cancelled)
+                                 (remhash key +local-project--queries)))
                            (+local-project--query-cleanup entry))))))
               (setf (plist-get entry :timer)
                     (run-at-time 8 nil
                                  (lambda ()
                                    (when (eq entry (gethash key +local-project--queries))
-                                     (setf (plist-get entry :status) 'failed)
+                                     (+local-project--query-failed entry)
                                      (+local-project--query-cleanup entry t))))))
           (error
-           (setf (plist-get entry :status) 'failed)
+           (+local-project--query-failed entry)
            (+local-project--query-cleanup entry t)))))))
 
 ;; This file is reloaded independently by Doom; retire every previous ticket.
 (+local-project--queries-reset)
 
+(defun +local-project--prepare-declarations (directory &optional context)
+  "Prepare DIRECTORY's native task declarations, optionally using settled CONTEXT."
+  (unless (cl-some (lambda (name) (file-exists-p (expand-file-name name directory)))
+                   '("package.json" "Cargo.toml" "pubspec.yaml"))
+    (when-let ((program (+local-project--declaration-program directory)))
+      (cond
+       ((or context (not (+local-project--environment-p)))
+        (+local-project--query directory program context))
+       (t
+        (+local-env-ensure directory
+                           (lambda (ready)
+                             (when (memq (plist-get ready :status) '(ready unmanaged))
+                               (+local-project--query directory program ready)))))))))
+
+(defun +local-project--retry-declarations (directory context)
+  "Retry an expired failure without adding probes to successful command paths."
+  (when (cl-some (lambda (program)
+                   (+local-project--retry-due-p
+                    (gethash (cons directory program) +local-project--queries)))
+                 '("just" "mise"))
+    (+local-project--prepare-declarations directory context)))
+
 (defun +local-project-prepare-h ()
   (when (and buffer-file-name (not (file-remote-p buffer-file-name)))
     (let ((directory (+local-project--directory)))
       (+local-project--apply directory)
-      (unless (cl-some (lambda (name) (file-exists-p (expand-file-name name directory)))
-                       '("package.json" "Cargo.toml" "pubspec.yaml"))
-        (let ((program (+local-project--declaration-program directory)))
-          (when program
-            (if (+local-project--environment-p)
-                (+local-env-ensure directory
-                                   (lambda (context)
-                                     (when (memq (plist-get context :status) '(ready unmanaged))
-                                       (+local-project--query directory program context))))
-              (+local-project--query directory program nil))))))))
+      (+local-project--prepare-declarations directory))))
 
 (defun +local-project-env-changed-h (old new)
   (unless (equal (plist-get old :generation) (plist-get new :generation))

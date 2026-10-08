@@ -45,15 +45,25 @@
 (defun +local-env--flush-dirty ()
   "Asynchronously refresh every component touched by a config event."
   (setq +local-env--change-timer nil)
-  (let ((keys (hash-table-keys +local-env--dirty)) (seen (make-hash-table :test #'equal)))
+  (let ((keys (hash-table-keys +local-env--dirty))
+        (seen (make-hash-table :test #'equal))
+        (descriptions (make-hash-table :test #'equal)))
     (clrhash +local-env--dirty)
     (dolist (key keys)
       (when-let ((record (gethash key +local-env--cache)))
         (dolist (buffer (+local-env--live-buffers record))
           (with-current-buffer buffer
-            (let ((new-key (plist-get (+local-env--describe +local-env--buffer-directory) :key)))
-              (+local-env-ensure +local-env--buffer-directory nil (not (gethash new-key seen)))
+            (let* ((directory +local-env--buffer-directory)
+                   (descriptor (+local-env--batch-descriptor directory descriptions))
+                   (new-key (plist-get descriptor :key)))
+              (+local-env--ensure directory nil (not (gethash new-key seen)) descriptor)
               (puthash new-key t seen))))))))
+
+(defun +local-env--batch-descriptor (directory descriptions)
+  "Describe DIRECTORY once in the synchronous batch table DESCRIPTIONS.
+Callers must keep this table local to one refresh, never an async callback."
+  (or (gethash directory descriptions)
+      (puthash directory (+local-env--describe directory) descriptions)))
 
 (defun +local-env--notify (path event)
   "Handle one native file notification from PATH, without starting a tool inline."
@@ -135,14 +145,16 @@
   "Check active buffers with bounded retries; never wait for a process."
   (when +local-env-mode
     (+local-env--capture-base)
-    (let ((seen (make-hash-table :test #'equal)))
+    (let ((seen (make-hash-table :test #'equal))
+          (descriptions (make-hash-table :test #'equal)))
       (dolist (buffer (buffer-list))
         (with-current-buffer buffer
           (when (and +local-env--buffer-directory
                      (not (file-remote-p +local-env--buffer-directory)))
             (let* ((directory +local-env--buffer-directory)
-                   (key (plist-get (+local-env--describe directory) :key)))
-              (+local-env-ensure directory nil (and force (not (gethash key seen))))
+                   (descriptor (+local-env--batch-descriptor directory descriptions))
+                   (key (plist-get descriptor :key)))
+              (+local-env--ensure directory nil (and force (not (gethash key seen))) descriptor)
               (puthash key t seen))))))
     (+local-env--prune-watchers)))
 
