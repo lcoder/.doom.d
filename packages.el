@@ -53,6 +53,15 @@
 (package! command-log-mode)
 ;; --- end of 展示当前key的日志 ---
 
+;; 按键观察：后台命令解析、模式频率及 Keycast 所需的兼容库。
+(package! keycast
+  :recipe (:host github :repo "tarsius/keycast")
+  :pin "13d41878b64f9e8a811862b860024847c23cdd9e")
+(package! keyfreq
+  :recipe (:host github :repo "dacap/keyfreq")
+  :pin "c6955162307f37c2ac631d9daf118781009f8dda")
+(package! compat :pin "90880f81419577e1d3f68424d2a3adf31e6d663e")
+
 ;; Smart select expand/shrink
 (package! expreg)
 

@@ -9,6 +9,11 @@
 (defvar clm/command-repetitions)
 (defvar clm/last-keyboard-command)
 
+;; 按键展示沿用 SPC t k，阻止软件包加载时另外注册 C-c o。
+(use-package! command-log-mode
+  :defer t
+  :init (setq command-log-mode-key-binding-open-log nil))
+
 (defun my/first-available-font-family (families)
   "Return the first available font in FAMILIES."
   (seq-find (lambda (family) (find-font (font-spec :family family))) families))

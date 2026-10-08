@@ -1,6 +1,7 @@
 ;;; $DOOMDIR/config.el -*- lexical-binding: t; -*-
 
 (load! "+ui")
+(load! "+key-observer")
 
 ;; Set the notes location without loading Org or its database integration.
 (setq org-roam-directory (expand-file-name "roam" (or org-directory "~/org")))
