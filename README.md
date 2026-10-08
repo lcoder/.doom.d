@@ -49,6 +49,26 @@
 
 共享文件不记录用户名、Homebrew 前缀、项目绝对路径、工具版本目录或机器身份。语法库、下载的语言服务、日志和环境缓存留在本机。
 
+## 本机 Homebrew daemon 与客户端
+
+本机使用稳定版 `emacs-plus@31` 源码公式，由公式提供的用户级 Homebrew 服务管理 daemon。安装前确保 Xcode 与 Command Line Tools 满足当前 macOS 的 Homebrew 构建要求；依赖由 Homebrew 安装。
+
+```sh
+brew trust d12frosted/emacs-plus
+brew tap d12frosted/emacs-plus
+brew install emacs-plus@31
+doom sync --env --rebuild -U
+brew services start emacs-plus@31
+```
+
+日常通过 Dock、Spotlight 或 Finder 的 Emacs Client 打开窗口，终端和图形界面共享默认 `server`。关闭窗口保留 daemon 和缓冲区。Git 编辑器等待保存或取消；`:wq` 保存完成编辑，`M-x server-edit-abort` 取消。不要用普通 Emacs 应用作为日常入口。
+
+本机客户端基于公式应用的副本，使用稳定的 `opt` 路径，只连接已有 Server；服务负责启动和恢复。公式默认客户端的按需启动回退已在本机副本中移除。升级后若替换客户端副本，重新应用保存在本机的启动脚本并签名。其他机器须核对自己的客户端行为；具体本机路径和服务约定位于 `AGENTS.md`。
+
+Ghostty 和 tmux 的 terminfo 安装在用户目录，使 daemon 能查找到终端定义和真彩色能力，不依赖终端应用临时注入环境。原生模块和语法库在切换 Emacs 构建后重新检查或构建；环境缓存、客户端应用、终端定义与备份留在仓库外。
+
+使用 `brew services info emacs-plus@31 --json` 检查服务。升级、重启或停止前保存工作，并取得结束共享会话的明确授权。登录启动配置已验证；真实注销再登录、实际键入和视觉体验仍需人工确认。本次未改变全部文件类型的默认应用关联。
+
 ## 日常操作
 
 继续使用 Doom 原有 compile/recompile、Projectile 编译/测试/运行，以及语言模块已有的 Flutter 和调试入口。没有 `SPC p m` 开发菜单，不维护第二套任务历史或任务输出管理。
