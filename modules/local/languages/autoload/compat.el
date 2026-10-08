@@ -72,11 +72,13 @@ inside that buffer; binding only the source environment cannot isolate runs."
            ('lsp-mode
             '((lsp :around +local-languages--guard-lsp)
               (lsp-deferred :around +local-languages--guard-lsp)
+              (lsp--supports-buffer? :around +local-languages--lint-client-p)
               (lsp--start-connection :filter-return +local-languages--remember-workspace)
               (lsp--session-workspaces :filter-return +local-languages--filter-workspaces)
               (lsp--find-workspace :around +local-languages--find-workspace)
               (lsp--find-multiroot-workspace :around +local-languages--find-multiroot)
               (lsp--try-open-in-library-workspace :around +local-languages--find-multiroot)))
+           ('flycheck '((flycheck-may-enable-checker :around +local-languages--lint-checker-p)))
            ('eglot '((eglot-ensure :around +local-languages--guard-eglot)))
            ('rustic-interaction
             '((rustic-beginning-of-defun :around +local-languages--rustic-beginning-of-defun-a)))

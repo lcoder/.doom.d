@@ -185,6 +185,8 @@ Only the native treesit library and the current Doom recipe are loaded."
   (when (cl-find '+local-languages--tsx-fallback +local-languages--specs :key #'car)
     (let ((entry '("\\.[tj]sx\\'" . +local-languages--tsx-fallback)))
       (setq auto-mode-alist (cons entry (delete entry auto-mode-alist)))))
+  (when (cl-find 'typescript-mode +local-languages--specs :key #'car)
+    (add-to-list 'auto-mode-alist '("\\.[cm]ts\\'" . typescript-mode)))
   (add-to-list 'auto-mode-alist '("\\.toml\\'" . conf-toml-mode)))
 
 (provide '+local-languages-grammar)

@@ -10,6 +10,7 @@
 (dolist (entry '((+local-languages-debug . "debug")
                  (+local-languages-debug-query . "debug-query")
                  (+local-languages-testing . "testing")
+                 (+local-languages-linters . "linters")
                  (+local-languages-compat . "autoload/compat")))
   (when (featurep (car entry))
     (load! (cdr entry) +local-languages--directory)))
@@ -27,9 +28,9 @@
        (when (modulep! :lang json +tree-sitter)
          '((json-mode json-ts-mode (json) "\\.jsonc?\\'")))
        (when (modulep! :lang javascript +tree-sitter)
-         '((typescript-mode typescript-ts-mode (typescript) "\\.ts\\'")
+         '((typescript-mode typescript-ts-mode (typescript) "\\.[cm]?ts\\'")
            (+local-languages--tsx-fallback tsx-ts-mode (tsx) "\\.[tj]sx\\'")
-           (js-mode js-ts-mode (javascript jsdoc) "\\.js\\'")))
+           (js-mode js-ts-mode (javascript jsdoc) "\\.[cm]?js\\'")))
        (when (modulep! :tools tree-sitter)
          '((conf-toml-mode toml-ts-mode (toml) "\\.toml\\'")))))
 
@@ -68,7 +69,17 @@
   (unless (featurep '+local-languages-debug)
     (load! "debug" +local-languages--directory))
   (+local-languages--install-compat 'lsp-dart-dap))
-(after! lsp-mode (+local-languages--install-compat 'lsp-mode))
+(after! lsp-mode
+  (when (and (modulep! :lang javascript +lsp) (not (modulep! :tools lsp +eglot)))
+    (unless (featurep '+local-languages-linters)
+      (load! "linters" +local-languages--directory))
+    (+local-languages--register-oxlint))
+  (+local-languages--install-compat 'lsp-mode))
+(when (and (modulep! :lang javascript +lsp) (not (modulep! :tools lsp +eglot)))
+  (after! flycheck
+    (unless (featurep '+local-languages-linters)
+      (load! "linters" +local-languages--directory))
+    (+local-languages--install-compat 'flycheck)))
 (after! eglot (+local-languages--install-compat 'eglot))
 
 (defun +local-languages--rust-condition-gap-p (node parent bol &rest _)

@@ -94,6 +94,31 @@ Rust 使用模式原生的函数或定义边界聚焦，不依赖 LSP 悬停范�
 
 使用同一命令再次切换即可退出。首次启用模块后需执行 `doom sync`，保存工作并重启 Emacs 后生效。
 
+## JavaScript / TypeScript 的 Oxlint
+
+本地 `lsp-mode` 会在打开文件或连接语言服务时识别项目的 Oxlint 声明：四种默认配置名
+`.oxlintrc.json`、`.oxlintrc.jsonc`、`oxlint.config.ts`、`oxlint.config.mts`，或 `package.json`
+中的直接依赖。查找限定在 Doom 项目内，从文件所在包向项目根选择已安装的
+`node_modules/.bin/oxlint`，复用项目环境执行 `oxlint --lsp`，与 TypeScript 服务并行。
+缺失工具时提示安装项目依赖，不自动下载，也不阻止 TypeScript 服务。
+JS/JSX、TS/TSX 及 `.mjs`、`.cjs`、`.mts`、`.cts` 使用现有语言模式；语法库就绪时启用原生 Tree-sitter 模式。
+
+诊断显示在原有 LSP/Flycheck 界面；通过 `M-x lsp-execute-code-action` 手动选择修复。
+不在保存时自动修复，保存格式化继续使用项目的 Oxfmt/Apheleia 规则。Oxlint 自行读取嵌套配置、
+忽略路径与 TypeScript 配置；非标准配置名可以在目录局部变量中设置
+`+local-languages-oxlint-config-path`，路径相对于 LSP 工作区根。显式配置路径会关闭 Oxlint
+的默认及嵌套配置发现，只有确实需要自定义配置文件时才设置。
+
+ESLint 只在项目有 `eslint.config.*`、`.eslintrc*` 或 `package.json` 的 `eslintConfig` 时自动启用；
+同时配置两者的项目保留两套诊断。仅保留 ESLint 依赖不视为已配置。没有 ESLint 声明时也不自动
+运行独立的 `javascript-eslint` checker；原生 `lsp-enabled-clients`、`lsp-disabled-clients` 和
+显式 `flycheck-checker` 选择仍优先。修改声明或安装依赖后重新连接项目 LSP 即可重新识别。
+
+此接入使用现有 Emacs 会话，`doom/reload` 可重新加载，不需要新增包或重启 daemon。
+Eglot 与远程 TRAMP 不启用这套项目识别。接口依据
+[Oxlint 编辑器说明](https://oxc.rs/docs/guide/usage/linter/editors.html)及
+[LSP 配置选项](https://oxc.rs/docs/guide/usage/linter/lsp-config-reference)。
+
 ## 保存规则
 
 空闲 30 秒只保存修改过的安全文件，跳过远程、只读、间接、加密、锁定和尚未存在的文件；不格式化、不整理空白。
@@ -118,7 +143,7 @@ Org 字体只修改当前缓冲区；关闭按键展示时同步停止记录。O
 | --- | --- |
 | `+ui.el` | 在 Doom 字体初始化前选择可用字体；不自行初始化 frame。 |
 | `save-format/+save.el` | 原生保存 hooks 不覆盖刚被自动保存的未修改文件；在 Apheleia 入口准备工具并继续其原生校验。 |
-| `languages/autoload/compat.el` | LSP 缺少统一的异步环境准备入口和跨环境 workspace 筛选接口；Flutter/DAP 需适配组件与异步 provider；Rustic 在 Tree-sitter 模式定位函数时需临时补齐旧语法辅助函数，当前单测试入口优先委托 rust-analyzer 的精确 Run Test 操作。仅在目标函数可用时安装。 |
+| `languages/autoload/compat.el` | LSP 缺少统一的异步环境准备入口和跨环境 workspace 筛选接口；本地 JS/TS 的 ESLint 客户端与 checker 需按项目声明筛选；Flutter/DAP 需适配组件与异步 provider；Rustic 在 Tree-sitter 模式定位函数时需临时补齐旧语法辅助函数，当前单测试入口优先委托 rust-analyzer 的精确 Run Test 操作。仅在目标函数可用时安装。 |
 | `project-commands/+commands.el` | 为原生命令临时绑定组件上下文，输出和历史继续由原生机制管理。 |
 
 生命周期依据 [Doom 官方配置文档](https://github.com/doomemacs/core/blob/master/docs/getting_started.org) 与本机安装的 Doom 实现。

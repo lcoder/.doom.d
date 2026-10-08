@@ -98,6 +98,8 @@
 
 (defun +local-languages--guard-lsp (function &rest args)
   "Preserve the original lsp/lsp-deferred entry points and their arguments."
+  (when (fboundp '+local-languages--refresh-linters)
+    (+local-languages--refresh-linters))
   (+local-languages--guard function args t))
 
 (defun +local-languages--guard-eglot (function &rest args)
