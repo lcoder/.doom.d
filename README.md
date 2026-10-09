@@ -39,6 +39,9 @@
 
 自动准备仅覆盖编辑器语法库和语言服务。缺少编译器、SDK、mise 运行时或业务依赖时保留基础编辑并提示，不执行项目依赖安装、不跳过 mise 信任检查。正常打开和保存不要求先运行 setup 或 refresh。模块 `doctor.el` 提供只读诊断。
 
+macOS 的 XML/SVG 源码编辑优先使用 LemMinX 原生语言服务，由 lsp-mode 按当前架构下载到本机缓存，
+无需 Java 运行时。这样可避免将系统自带的 `/usr/bin/java` 入口误判为已安装 Java，导致 xmlls 启动后立即退出。
+
 `local.el` 已被 Git 忽略，在所有模块默认值声明后、模块配置读取前，通过 `doom-before-modules-config-hook` 加载。已有本机文件和设置会保留。例如：
 
 ```elisp

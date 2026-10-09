@@ -75,6 +75,12 @@
       (load! "linters" +local-languages--directory))
     (+local-languages--register-oxlint))
   (+local-languages--install-compat 'lsp-mode))
+(when (and (eq system-type 'darwin)
+           (modulep! :lang web +lsp)
+           (not (modulep! :tools lsp +eglot)))
+  (after! lsp-xml
+    ;; macOS provides a java stub even when no Java runtime is installed.
+    (setq lsp-xml-prefer-jar nil)))
 (when (and (modulep! :lang javascript +lsp) (not (modulep! :tools lsp +eglot)))
   (after! flycheck
     (unless (featurep '+local-languages-linters)
