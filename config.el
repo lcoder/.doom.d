@@ -205,6 +205,49 @@
     (add-to-list 'evil-escape-excluded-major-modes mode))
   (add-to-list 'evil-escape-excluded-states 'visual))
 
+;; 仅在 Evil /、? 的搜索模式构造期间扩展纯小写拼音，保留英文分支。
+(after! evil-search
+  (defcustom my/evil-pinyin-max-query-length 8
+    "Maximum query length for automatic pinyin expansion.
+Longer queries keep Evil's original search to avoid expensive pyim regexps."
+    :type 'natnum
+    :group 'evil)
+
+  (defvar my/evil-pinyin--search-active nil
+    "Non-nil while constructing patterns for an Evil / or ? search.")
+
+  (defun my/evil-pinyin--with-search (fn &rest args)
+    "Call FN with ARGS while enabling pinyin for Evil search patterns."
+    (let ((my/evil-pinyin--search-active t))
+      (apply fn args)))
+
+  (defun my/evil-pinyin--expand-pattern (pattern)
+    "Expand lowercase searches in PATTERN, preserving Evil's other fields.
+Keep the original pattern when pyim is unavailable or conversion fails."
+    (save-match-data
+      (let ((regexp (car pattern))
+            (case-fold-search nil))
+        (if (and my/evil-pinyin--search-active
+                 (stringp regexp)
+                 (<= (length regexp) my/evil-pinyin-max-query-length)
+                 (string-match-p "\\`[a-z]+\\'" regexp))
+            (condition-case nil
+                (if (require 'pyim-cregexp nil t)
+                    (let ((expanded (pyim-cregexp-build regexp)))
+                      ;; Validate before handing the result to Evil's search/highlighter.
+                      (if (and (stringp expanded) (> (length expanded) 0))
+                          (progn
+                            (string-match-p expanded "")
+                            (cons expanded (cdr pattern)))
+                        pattern))
+                  pattern)
+              (error pattern))
+          pattern))))
+
+  (advice-add 'evil-ex-search-full-pattern :around #'my/evil-pinyin--with-search)
+  (advice-add 'evil-ex-make-search-pattern :filter-return
+              #'my/evil-pinyin--expand-pattern))
+
 ;; 文件路径不做拼音/正则扩展：长路径可能生成过大的正则，导致文件选择失败。
 ;; 独立样式保留无序多关键词匹配，不影响其他补全类别或中文输入。
 (after! orderless
