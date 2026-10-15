@@ -49,6 +49,17 @@
   (setq corfu-preselect 'first
         +corfu-want-ret-to-confirm t))
 
+;; With-Editor 必须先移除缓冲区保护，再取消客户端并清理终端。
+(after! with-editor
+  (defun my/server-edit-abort--with-editor-a (fn &rest args)
+    "Cancel With-Editor sessions through their native cleanup path."
+    (if (bound-and-true-p with-editor-mode)
+        (with-editor-cancel current-prefix-arg)
+      (apply fn args)))
+
+  (advice-add #'server-edit-abort :around
+              #'my/server-edit-abort--with-editor-a))
+
 ;; 固定段落从左到右，保留与 Doom 字体初始化一致的双向重排设置。
 (setq-default bidi-paragraph-direction 'left-to-right
               bidi-display-reordering t

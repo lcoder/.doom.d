@@ -66,7 +66,9 @@ doom sync --env --rebuild -U
 brew services start emacs-plus@31
 ```
 
-日常通过 Dock、Spotlight 或 Finder 的 Emacs Client 打开窗口，终端和图形界面共享默认 `server`。关闭窗口保留 daemon 和缓冲区。Git 编辑器等待保存或取消；`:wq` 保存完成编辑，`M-x server-edit-abort` 取消。不要用普通 Emacs 应用作为日常入口。
+日常通过 Dock、Spotlight 或 Finder 的 Emacs Client 打开窗口，终端和图形界面共享默认 `server`。关闭窗口保留 daemon 和缓冲区。Git 编辑器等待保存或取消；`:wq` 保存完成编辑，`M-x with-editor-cancel` 取消，仅 `:w` 保存后仍会等待。不要用普通 Emacs 应用作为日常入口。
+
+Git 提交信息由 With-Editor 管理。`server-edit-abort` 在此模式下转交原生取消流程，避免缓冲区保护中断客户端清理，留下终端窗口并使后续编辑回显 `^[` 等控制字符。其他 Server 缓冲区保留原有行为。终端验收须覆盖 Ghostty 与 tmux 中未修改和修改后取消、再次打开及实际输入，不能仅以 Elisp 命令调用成功判断按键正常。
 
 本机客户端基于公式应用的副本，使用稳定的 `opt` 路径，只连接已有 Server；服务负责启动和恢复。公式默认客户端的按需启动回退已在本机副本中移除。升级后若替换客户端副本，重新应用保存在本机的启动脚本并签名。其他机器须核对自己的客户端行为；具体本机路径和服务约定位于 `AGENTS.md`。
 

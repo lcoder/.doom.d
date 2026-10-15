@@ -28,7 +28,7 @@
 - 日常图形入口为 `/Applications/Emacs Client.app`，Dock 已替换为该客户端。终端和图形客户端连接默认名为 `server` 的同一个 Server，共享缓冲区、配置和运行中的任务。不要将普通 `Emacs.app` 作为日常启动入口。
 - 本机客户端使用 `/opt/homebrew/opt/emacs-plus@31/bin/emacsclient -s server -c -n` 创建图形窗口，再通过 Elisp 聚焦窗口；不使用 `open -a Emacs` 或 `-a ""`。连接失败时提示检查服务，避免启动第二个 Emacs。支持 Finder 文件打开、拖放和带空格的路径。
 - 启动器源码位于 `~/.local/share/emacs-client/launcher.applescript`。客户端是公式应用的本机副本；升级后若替换副本，须重新编译该严格连接脚本并重新签名，不能直接保留公式默认的按需 daemon 回退行为。客户端使用稳定的 `opt` 路径。
-- Git 全局 `core.editor` 为 `/opt/homebrew/bin/emacsclient -t`。Git 编辑器不使用 `-n`，须等待编辑完成；也不使用 `-a ""`。Doom/Evil 中使用 `:wq` 保存并完成编辑，取消使用 `M-x server-edit-abort`。不要因配置了编辑器而自动执行实际项目的提交或 amend。
+- Git 全局 `core.editor` 为 `/opt/homebrew/bin/emacsclient -t`。Git 编辑器不使用 `-n`，须等待编辑完成；也不使用 `-a ""`。Doom/Evil 中使用 `:wq` 保存并完成编辑，取消使用 `M-x with-editor-cancel`。`server-edit-abort` 在 With-Editor 模式下转交同一原生取消流程，避免缓冲区保护中断终端清理。验收须覆盖真实 Ghostty 与 tmux 中未修改和修改后取消、再次打开及实际输入，检查终端窗口与客户端是否清理；Elisp 命令调用成功不等于按键验收。不要因配置了编辑器而自动执行实际项目的提交或 amend。
 - Ghostty 与 tmux 的终端定义已安装到用户级 `~/.terminfo`，源码分别位于 `~/.local/share/emacs-client/terminfo/xterm-ghostty.src` 和 `tmux-256color.src`。两者补充 Emacs 使用的 `setf24` / `setb24` 能力；修改后使用 `/usr/bin/tic -x -o ~/.terminfo <源码文件>` 编译。只设置 Ghostty 应用的 `TERMINFO` 不足以供常驻 daemon 查找终端定义。处理配色问题时先检查颜色能力，不通过硬编码 face 颜色掩盖降级问题。
 - 关闭客户端窗口不会结束 daemon；重新打开客户端可继续使用同一会话。基础编辑工具优先使用 Homebrew，Node 沿用 mise，Rust 沿用 rustup。Flutter SDK 位于 Homebrew，独立 Dart 公式保留但解除链接，使用 Flutter 自带 Dart。
 - 使用 `brew services info emacs-plus@31 --json` 查看服务状态。启动使用 `brew services start emacs-plus@31`，重启使用 `brew services restart emacs-plus@31`，停止使用 `brew services stop emacs-plus@31`；重启或停止会结束整个共享会话，必须先确认保存状态，并取得用户对结束会话的明确授权。
