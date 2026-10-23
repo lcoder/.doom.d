@@ -26,6 +26,22 @@
       (when (stringp family)
         (setq doom-font (font-spec :family family :size my/dev-font-size))))))
 
+(defun my/dev-ui-maple-fontset-h (&optional _context)
+  "Use Maple CJK glyphs after Doom initializes fonts or creates a frame."
+  (let (configured-fontsets)
+    (dolist (frame (frame-list))
+      (when (display-graphic-p frame)
+        (let ((family (face-attribute 'default :family frame))
+              (fontset (face-attribute 'default :fontset frame)))
+          (when (and (equal family "Maple Mono NF CN")
+                     (stringp fontset)
+                     (not (member fontset configured-fontsets)))
+            ;; macOS 默认字体集会优先选择系统中文字体，需在 Maple 字体集内覆盖。
+            (dolist (characters '(han (#x3000 . #x303f) (#xff00 . #xffef)))
+              (set-fontset-font fontset characters
+                                (font-spec :family family) frame))
+            (push fontset configured-fontsets)))))))
+
 (defun my/dev-ui-field-weight-h ()
   "Use medium weight for field names and active snippet fields, keeping their colors."
   (dolist (face '(font-lock-property-name-face yas-field-highlight-face))
@@ -294,7 +310,10 @@ Preserve the current font on RELOAD and while a size adjustment is active."
 
 (remove-hook 'after-make-frame-functions #'my/dev-after-frame-font-h)
 (when (fboundp 'doom-init-fonts-h)
-  (advice-add 'doom-init-fonts-h :before #'my/dev-select-doom-fonts-h))
+  (advice-add 'doom-init-fonts-h :before #'my/dev-select-doom-fonts-h)
+  (advice-add 'doom-init-fonts-h :after #'my/dev-ui-maple-fontset-h))
+;; 普通新窗口不触发服务端字体初始化钩子，单独补齐其字符映射。
+(add-hook 'after-make-frame-functions #'my/dev-ui-maple-fontset-h 100)
 (my/dev-select-doom-fonts-h)
 (add-hook 'doom-load-theme-hook #'my/dev-ui-field-weight-h)
 (my/dev-ui-field-weight-h)

@@ -151,8 +151,9 @@
 (after! org
   (setq org-ellipsis " ⤵"
         org-edit-src-content-indentation 2)
+  ;; 折叠标记沿用原 Org 字体；恢复随正文选字时，移除下面的 :family 设置。
   (custom-set-faces
-   '(org-ellipsis ((t (:foreground "#E6DC88"))))))
+   '(org-ellipsis ((t (:family "Sarasa Term SC Nerd" :foreground "#E6DC88"))))))
 
 (use-package! valign
   :hook (org-mode . valign-mode))

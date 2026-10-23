@@ -32,14 +32,20 @@
   "Machine-local notes directory, or nil to retain an existing notes location."
   :type '(choice (const nil) directory) :group 'my/dev)
 (defcustom my/dev-font-families
-  '("FiraCode Nerd Font" "SF Mono" "Menlo")
+  ;; 原主字体：FiraCode Nerd Font。
+  ;; 恢复时，取消下一行的注释，并注释当前 Maple Mono 配置行。
+  ;; '("FiraCode Nerd Font" "SF Mono" "Menlo")
+  '("Maple Mono NF CN" "SF Mono" "Menlo")
   "Preferred available editor fonts; the current system font is the fallback."
   :type '(repeat string) :group 'my/dev)
 (defcustom my/dev-font-size 13
   "Editor font size on this machine."
   :type 'number :group 'my/dev)
 (defcustom my/dev-org-font-families
-  '("Sarasa Term SC Nerd Font" "Sarasa Term SC Nerd")
+  ;; 原 Org 字体：Sarasa Term SC Nerd。
+  ;; 恢复时，取消下一行的注释，并注释当前 Maple Mono 配置行。
+  ;; '("Sarasa Term SC Nerd Font" "Sarasa Term SC Nerd")
+  '("Maple Mono NF CN")
   "Preferred available Org fonts, applied only to Org buffers."
   :type '(repeat string) :group 'my/dev)
 (defcustom my/dev-project-search-directories nil
