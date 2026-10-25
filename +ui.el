@@ -166,6 +166,62 @@
                                   my/dev-org-font-families)))
                 (face-remap-add-relative 'default :family family))))
 
+;; Keep Org's native indentation scheduler from leaving orphan idle timers.
+(defvar org-indent-agentized-buffers)
+(defvar org-indent-agent-timer)
+(defvar org-indent-agent-resume-timer)
+
+(defun my/org-indent--normalize-timers ()
+  "Retire orphan indentation timers while retaining pending native work.
+Keep at most one repeating agent and its referenced one-shot continuation.
+Other idle timers are never changed."
+  (setq org-indent-agentized-buffers
+        (seq-filter (lambda (buffer)
+                      (and (buffer-live-p buffer)
+                           (buffer-local-value 'org-indent-mode buffer)))
+                    org-indent-agentized-buffers))
+  (let* ((timers (seq-filter
+                  (lambda (timer)
+                    (eq (timer--function timer) #'org-indent-initialize-agent))
+                  timer-idle-list))
+         (agent
+          (when org-indent-agentized-buffers
+            (or (and (memq org-indent-agent-timer timers)
+                     (timer--repeat-delay org-indent-agent-timer)
+                     org-indent-agent-timer)
+                (seq-find #'timer--repeat-delay timers))))
+         (resume
+          (and org-indent-agentized-buffers
+               (memq org-indent-agent-resume-timer timers)
+               (not (timer--repeat-delay org-indent-agent-resume-timer))
+               org-indent-agent-resume-timer)))
+    (dolist (timer timers)
+      (unless (or (eq timer agent) (eq timer resume))
+        (cancel-timer timer)))
+    (setq org-indent-agent-timer agent
+          org-indent-agent-resume-timer resume)))
+
+(defun my/org-indent--guard-agent-a (function &rest args)
+  "Run FUNCTION with ARGS only while native indentation work remains.
+Wrap the Valign after-advice too, so empty idle callbacks never realign tables."
+  (my/org-indent--normalize-timers)
+  (when org-indent-agentized-buffers
+    (unwind-protect
+        (apply function args)
+      (my/org-indent--normalize-timers))))
+
+(defun my/org-indent--install-h ()
+  "Install the reload-safe indentation timer guard and clean existing timers."
+  (when (fboundp 'org-indent-initialize-agent)
+    ;; Valign adds its advice again for each buffer; keep the guard outside it.
+    (advice-add 'org-indent-initialize-agent :around
+                #'my/org-indent--guard-agent-a '((depth . -100)))
+    (add-hook 'org-indent-mode-hook #'my/org-indent--normalize-timers 90)
+    (my/org-indent--normalize-timers)))
+
+(after! org-indent
+  (my/org-indent--install-h))
+
 (defun my/dev-existing-notes-directory ()
   "Retain an existing notes location; never create a competing notes library."
   (if my/dev-notes-directory
