@@ -151,6 +151,11 @@
 (after! org
   (setq org-ellipsis " ⤵"
         org-edit-src-content-indentation 2)
+  ;; 两个上游补丁项目的字体族名不同，保留原名并使用 Emacs 原生回退。
+  (setopt face-font-family-alternatives
+          (cons '("Sarasa Term SC Nerd" "Sarasa Term SC Nerd Font")
+                (assoc-delete-all "Sarasa Term SC Nerd"
+                                  face-font-family-alternatives)))
   ;; 折叠标记沿用原 Org 字体；恢复随正文选字时，移除下面的 :family 设置。
   (custom-set-faces
    '(org-ellipsis ((t (:family "Sarasa Term SC Nerd" :foreground "#E6DC88"))))))
