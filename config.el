@@ -336,6 +336,16 @@ Keep the original pattern when pyim is unavailable or conversion fails."
     (set-window-hscroll (selected-window) 0)))
 (advice-add 'text-scale-adjust :after #'my/vterm-reset-hscroll)
 
+;; 中英文间距由手动编辑，禁用文本模式的自动间距处理。
+(remove-hook 'text-mode-hook #'pangu-spacing-mode)
+(after! pangu-spacing
+  (when (bound-and-true-p global-pangu-spacing-mode)
+    (global-pangu-spacing-mode -1))
+  (dolist (buffer (buffer-list))
+    (with-current-buffer buffer
+      (when (bound-and-true-p pangu-spacing-mode)
+        (pangu-spacing-mode -1)))))
+
 ;; pyim（从零：先保证基础词库可用，再叠加清华词库）
 ;;
 ;; 用法：
