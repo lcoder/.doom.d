@@ -408,4 +408,19 @@ Preserve the current font on RELOAD and while a size adjustment is active."
 (after! lsp-lens
   (setq lsp-lens-place-position 'above-line))
 
+;; Reuse explicit code-block modes before probing Tree-sitter on each edit.
+(after! markdown-mode
+  (defun my/markdown--prefer-explicit-mode-a (function lang)
+    "Return a valid explicit mode for LANG, otherwise call FUNCTION.
+Honor Markdown's case priority and mode eligibility without caching results."
+    (or (and (fboundp 'markdown--lang-mode-predicate)
+             (cl-find-if #'markdown--lang-mode-predicate
+                         (list (cdr (assoc lang markdown-code-lang-modes))
+                               (cdr (assoc (downcase lang)
+                                           markdown-code-lang-modes)))))
+        (funcall function lang)))
+
+  (advice-add 'markdown-get-lang-mode :around
+              #'my/markdown--prefer-explicit-mode-a))
+
 ;;; +ui.el ends here
