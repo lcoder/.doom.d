@@ -352,6 +352,27 @@ Keep the original pattern when pyim is unavailable or conversion fails."
 ;; - `C-\\` 切换输入法（Emacs 默认键位）
 ;; - 切到 pyim 后，输入 shuzu 应该能得到「数组」
 (after! pyim
+  (defvar gcmh-high-cons-threshold)
+  (defvar gcmh-idle-timer)
+
+  (defun my/pyim--with-active-gc-a (function &rest args)
+    "Run FUNCTION with ARGS using GCMH's editing threshold during input.
+Pyim reads and dispatches keys before the normal command hooks run.
+Suspend the pending idle collection until input and candidate selection finish."
+    (if (and (bound-and-true-p gcmh-mode)
+             (fboundp 'gcmh-register-idle-gc))
+        (let ((gc-cons-threshold (max gc-cons-threshold gcmh-high-cons-threshold)))
+          (when (timerp gcmh-idle-timer)
+            (cancel-timer gcmh-idle-timer)
+            (setq gcmh-idle-timer nil))
+          (unwind-protect
+              (apply function args)
+            (when (bound-and-true-p gcmh-mode)
+              (gcmh-register-idle-gc))))
+      (apply function args)))
+
+  (advice-add 'pyim-input-method :around #'my/pyim--with-active-gc-a)
+
   (setq default-input-method "pyim"
         pyim-default-scheme 'quanpin
         ;; 固定在 minibuffer 显示候选词，规避 posframe 定位触发的崩溃
