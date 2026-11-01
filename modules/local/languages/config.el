@@ -70,6 +70,9 @@
     (load! "debug" +local-languages--directory))
   (+local-languages--install-compat 'lsp-dart-dap))
 (after! lsp-mode
+  (when (modulep! :lang dart +lsp)
+    ;; Tree-sitter Dart buffers use the same language ID as dart-mode.
+    (add-to-list 'lsp-language-id-configuration '(dart-ts-mode . "dart")))
   (when (and (modulep! :lang javascript +lsp) (not (modulep! :tools lsp +eglot)))
     (unless (featurep '+local-languages-linters)
       (load! "linters" +local-languages--directory))
