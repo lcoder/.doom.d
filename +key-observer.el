@@ -24,7 +24,15 @@
           (number :tag "Time limit in seconds")))
 
 (defcustom my/key-observer-save-interval 60
-  "Interval between batched saves of observed commands, in seconds."
+  "Interval between requests to save observed commands, in seconds."
+  :type 'number)
+
+(defcustom my/key-observer-save-idle-delay 1
+  "Idle time before a requested background save starts, in seconds."
+  :type 'number)
+
+(defcustom my/key-observer-save-max-delay 60
+  "Maximum extra delay before starting a requested save, in seconds."
   :type 'number)
 
 (defvar my/key-observer--session nil)
@@ -34,12 +42,27 @@
 (defvar my/key-observer--save-timer nil)
 (defvar my/key-observer--deadline-timer nil)
 (defvar my/key-observer--finish-timer nil)
+(defvar my/key-observer--save-idle-timer nil)
+(defvar my/key-observer--save-latest-timer nil)
+(defvar my/key-observer--save-continuation-timer nil)
+(defvar my/key-observer--save-requested nil)
+(defvar my/key-observer--save-forced nil)
+(defvar my/key-observer--save-yielded nil)
+(defvar my/key-observer--checkpoint nil)
+(defvar my/key-observer--last-save-metrics nil)
+(defvar my/key-observer--log-names (make-hash-table :test #'eql))
+(defvar my/key-observer--saved-control-state nil)
+(defvar my/key-observer--mode-line-status :unknown)
+(defvar-local my/key-observer--panel-state nil)
 (defvar my/key-observer--owns-keycast nil)
 (defvar my/key-observer--inhibit nil)
 (defvar my/key-observer--replay-source nil)
 (defvar my/key-observer--source-buffer nil)
 (defvar my/key-observer--control-state nil)
 (defconst my/key-observer--panel "*按键观察*")
+(defconst my/key-observer--save-batch-size 250)
+(defconst my/key-observer--save-time-budget 0.008)
+(defconst my/key-observer--save-yield-delay 0.01)
 (defconst my/key-observer--replay-commands
   '(evil-repeat evil-repeat-pop evil-repeat-pop-next evil-execute-macro
     kmacro-call-macro kmacro-end-or-call-macro kmacro-end-and-call-macro
@@ -64,13 +87,20 @@
     (>= (float-time) deadline)))
 
 (defun my/key-observer--log-name (&optional timestamp)
-  "Return the log filename for TIMESTAMP, using daily files in continuous mode."
+  "Return the cached log filename for TIMESTAMP in continuous mode.
+Singapore days use UTC+08:00.  Compute the cheap day index for each
+record, formatting a date only once per day, outside command hooks."
   (if (eq (plist-get my/key-observer--session :continuous) t)
-      (concat "commands-"
-              (format-time-string "%Y-%m-%d"
-                                  (and timestamp (seconds-to-time timestamp))
-                                  "Asia/Singapore")
-              ".jsonl")
+      (let* ((timestamp (or timestamp (float-time)))
+             (day (floor (+ timestamp 28800) 86400)))
+        (or (gethash day my/key-observer--log-names)
+            (puthash day
+                     (concat "commands-"
+                             (format-time-string "%Y-%m-%d"
+                                                 (seconds-to-time timestamp)
+                                                 "Asia/Singapore")
+                             ".jsonl")
+                     my/key-observer--log-names)))
     "commands.jsonl"))
 
 (defun my/key-observer--set-control (enabled paused)
@@ -83,10 +113,14 @@
 
 (defun my/key-observer--save-control ()
   "Persist the remembered intent for automatic recovery after daemon startup."
-  (when my/key-observer--control-state
+  (when (and my/key-observer--control-state
+             (not (equal my/key-observer--control-state
+                         my/key-observer--saved-control-state)))
     (my/key-observer--write-json
      (expand-file-name "control.json" my/key-observer-directory)
-     my/key-observer--control-state)))
+     my/key-observer--control-state)
+    (setq my/key-observer--saved-control-state
+          (copy-sequence my/key-observer--control-state))))
 
 (defun my/key-observer--write-json (file data)
   "Atomically write DATA as private UTF-8 JSON to FILE."
@@ -114,48 +148,154 @@
     (vconcat (sort rows (lambda (a b)
                           (> (plist-get a :count) (plist-get b :count)))))))
 
+(defun my/key-observer--saving-gc-threshold ()
+  "Use GCMH's existing editing threshold for short save allocations."
+  (if (and (bound-and-true-p gcmh-mode)
+           (bound-and-true-p gcmh-high-cons-threshold))
+      (max gc-cons-threshold gcmh-high-cons-threshold)
+    gc-cons-threshold))
+
+(defun my/key-observer--begin-checkpoint ()
+  "Freeze a checkpoint while subsequent commands enter the next pending batch."
+  (unless my/key-observer--checkpoint
+    (let* ((gc-cons-threshold (my/key-observer--saving-gc-threshold))
+           (session (copy-sequence my/key-observer--session))
+           (records (reverse my/key-observer--pending)))
+      ;; saved-at describes the covered input cutoff, not the later commit time.
+      (setf (plist-get session :saved-at) (float-time))
+      (setq my/key-observer--checkpoint
+            (list :records records :append nil
+                  :session session
+                  :frequencies (list :rows (my/key-observer--frequency-data))
+                  :targets '(frequencies session latest control)
+                  :record-count (length records)
+                  :slices 0 :work-ms 0 :max-slice-ms 0 :gc-count 0)
+            my/key-observer--pending nil))))
+
+(defun my/key-observer--prepare-append (limit deadline)
+  "Prepare at most LIMIT records for one file, yielding after DEADLINE."
+  (let* ((records (plist-get my/key-observer--checkpoint :records))
+         (rest records)
+         (name (my/key-observer--log-name (plist-get (car records) :time)))
+         (file (my/key-observer--path name))
+         (count 0))
+    (with-temp-buffer
+      (while (and rest (< count limit)
+                  (or (zerop count) (not deadline) (< (float-time) deadline))
+                  (equal name (my/key-observer--log-name
+                               (plist-get (car rest) :time))))
+        (insert (json-serialize (car rest) :null-object nil :false-object :false)
+                "\n")
+        (cl-incf count)
+        (setq rest (cdr rest)))
+      (unless (file-exists-p file)
+        (with-temp-file file))
+      (set-file-modes file #o600)
+      (setf (plist-get my/key-observer--checkpoint :append)
+            (list :file file
+                  :offset (file-attribute-size (file-attributes file))
+                  :bytes (encode-coding-string (buffer-string) 'utf-8-unix)
+                  :rest rest :count count :attempted nil)))))
+
+(defun my/key-observer--commit-append ()
+  "Commit a prepared append, resuming a partial failed write without duplicates."
+  (let* ((append-state (plist-get my/key-observer--checkpoint :append))
+         (file (plist-get append-state :file))
+         (bytes (plist-get append-state :bytes))
+         (offset (plist-get append-state :offset))
+         (written 0)
+         (coding-system-for-write 'no-conversion))
+    (when (plist-get append-state :attempted)
+      (when (< (file-attribute-size (file-attributes file)) offset)
+        (error "按键日志已截断，保留待写数据：%s" file))
+      (with-temp-buffer
+        (set-buffer-multibyte nil)
+        (insert-file-contents-literally file nil offset)
+        (unless (string-prefix-p (buffer-string) bytes)
+          (error "按键日志尾部已改变，保留待写数据：%s" file))
+        (setq written (buffer-size))))
+    (setf (plist-get append-state :attempted) t)
+    (when (< written (length bytes))
+      (write-region (substring bytes written) nil file t 'silent))
+    (setf (plist-get my/key-observer--checkpoint :records)
+          (plist-get append-state :rest)
+          (plist-get my/key-observer--checkpoint :append) nil)
+    (plist-get append-state :count)))
+
+(defun my/key-observer--write-checkpoint-target ()
+  "Write the next checkpoint metadata file, advancing only after success."
+  (let* ((checkpoint my/key-observer--checkpoint)
+         (target (car (plist-get checkpoint :targets)))
+         (session (plist-get checkpoint :session)))
+    (pcase target
+      ('frequencies
+       (my/key-observer--write-json (my/key-observer--path "frequencies.json")
+                                    (plist-get checkpoint :frequencies)))
+      ('session
+       (my/key-observer--write-json (my/key-observer--path "session.json") session))
+      ('latest
+       (my/key-observer--write-json
+        (expand-file-name "latest.json" my/key-observer-directory) session))
+      ('control (my/key-observer--save-control)))
+    (setf (plist-get checkpoint :targets) (cdr (plist-get checkpoint :targets)))))
+
+(defun my/key-observer--flush-slice (&optional bounded)
+  "Advance the checkpoint, optionally bounding the amount of work.
+With BOUNDED, limit work to 250 records or about 8 ms.
+A single file operation cannot be preempted.
+Check the budget between operations."
+  (let* ((checkpoint my/key-observer--checkpoint)
+         (start (float-time))
+         (before-gc gcs-done)
+         (deadline (and bounded (+ start my/key-observer--save-time-budget)))
+         (limit (if bounded my/key-observer--save-batch-size most-positive-fixnum))
+         (count 0)
+         (first t)
+         (my/key-observer--inhibit t)
+         (gc-cons-threshold (my/key-observer--saving-gc-threshold)))
+    (unwind-protect
+        (while (and my/key-observer--checkpoint (< count limit)
+                    (or first (not deadline) (< (float-time) deadline)))
+          (setq first nil)
+          (cond
+           ((plist-get checkpoint :records)
+            (unless (plist-get checkpoint :append)
+              (my/key-observer--prepare-append (- limit count) deadline))
+            (cl-incf count (my/key-observer--commit-append)))
+           ((plist-get checkpoint :targets)
+            (my/key-observer--write-checkpoint-target))
+           (t
+            (setf (plist-get my/key-observer--session :saved-at)
+                  (plist-get (plist-get checkpoint :session) :saved-at))
+            (setq my/key-observer--checkpoint nil))))
+      (let ((elapsed (* 1000 (- (float-time) start))))
+        (cl-incf (plist-get checkpoint :slices))
+        (cl-incf (plist-get checkpoint :work-ms) elapsed)
+        (cl-incf (plist-get checkpoint :gc-count) (- gcs-done before-gc))
+        (setf (plist-get checkpoint :max-slice-ms)
+              (max elapsed (plist-get checkpoint :max-slice-ms)))
+        (unless my/key-observer--checkpoint
+          (setq my/key-observer--last-save-metrics
+                (cl-loop for key in '(:record-count :slices :work-ms :max-slice-ms :gc-count)
+                         append (list key (plist-get checkpoint key)))))))))
+
+(defun my/key-observer--cancel-background-save ()
+  "Cancel background scheduling without discarding an in-progress checkpoint."
+  (dolist (symbol '(my/key-observer--save-idle-timer
+                    my/key-observer--save-latest-timer
+                    my/key-observer--save-continuation-timer))
+    (my/key-observer--cancel-timer symbol))
+  (setq my/key-observer--save-requested nil
+        my/key-observer--save-forced nil
+        my/key-observer--save-yielded nil))
+
 (defun my/key-observer--save ()
-  "Save queued commands, frequencies and session state in a single batch."
+  "Synchronously finish all queued work and a fresh explicit checkpoint."
+  (my/key-observer--cancel-background-save)
   (when my/key-observer--session
-    (let ((my/key-observer--inhibit t)
-          (coding-system-for-write 'utf-8-unix))
-      (when my/key-observer--pending
-        ;; Remove only successfully saved prefixes so a retry cannot duplicate
-        ;; yesterday's records when today's daily file could not be written.
-        (let ((records (reverse my/key-observer--pending)))
-          (setq my/key-observer--pending nil)
-          (unwind-protect
-              (while records
-                (let* ((name (my/key-observer--log-name
-                              (plist-get (car records) :time)))
-                       (rest records)
-                       (count 0)
-                       (file (my/key-observer--path name)))
-                  (with-temp-buffer
-                    (while (and rest
-                                (equal name (my/key-observer--log-name
-                                             (plist-get (car rest) :time))))
-                      (insert (json-serialize (car rest)
-                                              :null-object nil :false-object :false)
-                              "\n")
-                      (cl-incf count)
-                      (setq rest (cdr rest)))
-                    (unless (file-exists-p file)
-                      (with-temp-file file)
-                      (set-file-modes file #o600))
-                    (write-region (point-min) (point-max) file t 'silent))
-                  (setq records (nthcdr count records))))
-            (setq my/key-observer--pending (reverse records)))))
-      (my/key-observer--write-json
-       (my/key-observer--path "frequencies.json")
-       (list :rows (my/key-observer--frequency-data)))
-      (setf (plist-get my/key-observer--session :saved-at) (float-time))
-      (my/key-observer--write-json (my/key-observer--path "session.json")
-                                   my/key-observer--session)
-      (my/key-observer--write-json
-       (expand-file-name "latest.json" my/key-observer-directory)
-       my/key-observer--session)
-      (my/key-observer--save-control))))
+    (while my/key-observer--checkpoint (my/key-observer--flush-slice))
+    (my/key-observer--begin-checkpoint)
+    (while my/key-observer--checkpoint (my/key-observer--flush-slice))))
 
 (defun my/key-observer--deactivate ()
   "Remove only the collector and Keycast mode owned by this observer."
@@ -166,6 +306,7 @@
   (when my/key-observer--owns-keycast
     (keycast-invisible-mode -1)
     (setq my/key-observer--owns-keycast nil))
+  (my/key-observer--cancel-background-save)
   (clrhash my/key-observer--contexts))
 
 (defun my/key-observer--cancel-timer (symbol)
@@ -179,22 +320,27 @@
       (progn
         (my/key-observer--save)
         (my/key-observer--refresh))
-    (error
-     (my/key-observer--deactivate)
-     (my/key-observer--cancel-timer 'my/key-observer--save-timer)
-     (when (my/key-observer--active-p)
-       (setf (plist-get my/key-observer--session :status) "paused"))
-     (setf (plist-get my/key-observer--session :error)
-           (error-message-string error-data))
-     (my/key-observer--set-control
-      (and (my/key-observer--active-p)
-           (eq (plist-get my/key-observer--session :continuous) t)) t)
-     (ignore-errors (my/key-observer--save-control))
-     (my/key-observer--refresh)
-     (display-warning 'my/key-observer
-                      (concat "按键观察保存失败，已停止采集；内存中未保存的数据保留。"
-                              (error-message-string error-data))
-                      :warning))))
+    ((error quit) (my/key-observer--save-error error-data))))
+
+(defun my/key-observer--save-error (error-data)
+  "Pause collection on ERROR-DATA, retaining the checkpoint and new input."
+  (my/key-observer--deactivate)
+  (my/key-observer--cancel-timer 'my/key-observer--save-timer)
+  (when (my/key-observer--active-p)
+    (setf (plist-get my/key-observer--session :status) "paused"))
+  (setf (plist-get my/key-observer--session :error)
+        (error-message-string error-data))
+  (my/key-observer--set-control
+   (and (my/key-observer--active-p)
+        (eq (plist-get my/key-observer--session :continuous) t)) t)
+  (condition-case nil
+      (my/key-observer--save-control)
+    ((error quit) nil))
+  (my/key-observer--refresh)
+  (display-warning 'my/key-observer
+                   (concat "按键观察保存失败，已停止采集；内存中未保存的数据保留。"
+                           (error-message-string error-data))
+                   :warning))
 
 (defun my/key-observer--boundary (event)
   "Queue a lifecycle EVENT without counting it as an editing command."
@@ -218,7 +364,7 @@
         (setq my/key-observer--finish-timer
               (run-at-time 0 nil #'my/key-observer--save-h))
       (my/key-observer--save-h))
-    (force-mode-line-update t)))
+    (my/key-observer--refresh)))
 
 (defun my/key-observer--deadline-h ()
   "End observation at the original wall-clock deadline."
@@ -228,6 +374,8 @@
 (defun my/key-observer--eligible-p ()
   "Return non-nil for observable Emacs input, including minibuffers."
   (and (not my/key-observer--inhibit)
+       (not (bound-and-true-p keycast--reading-passwd))
+       (not (eq (event-basic-type last-command-event) 'mouse-movement))
        (not (derived-mode-p 'comint-mode 'term-mode 'vterm-mode
                             'eat-mode 'eshell-mode))
        (not (equal (buffer-name) my/key-observer--panel))
@@ -294,6 +442,13 @@
                              (prin1-to-string current-prefix-arg)))
              major-mode command source)))))))
 
+(defun my/key-observer--command-snapshot ()
+  "Return Keycast's unstyled key and command with one formatting pass."
+  (when-let* ((formatted (keycast-format "%K\0%C"))
+              (separator (string-search "\0" formatted)))
+    (cons (substring formatted 0 separator)
+          (string-trim (substring formatted (1+ separator))))))
+
 (defun my/key-observer--post-h ()
   "Queue Keycast's resolved command and original keys with editing context."
   (when (equal (plist-get my/key-observer--session :status) "recording")
@@ -301,15 +456,17 @@
         (my/key-observer--finish "completed" t)
       (condition-case error-data
           (let* ((context (gethash (recursion-depth) my/key-observer--contexts))
-                 (keys (and context (keycast-format "%K")))
-                 (command (and keys (keycast-format "%C"))))
+                 (snapshot (and context
+                                (my/key-observer--eligible-p)
+                                (my/key-observer--command-snapshot)))
+                 (keys (car snapshot))
+                 (command (cdr snapshot)))
             (when (and command (not (string-empty-p keys))
                        (not (memq this-original-command
                                   my/key-observer--replay-commands))
                        (my/key-observer--eligible-p))
               (let* ((source (my/key-observer--source))
                      (mode (plist-get context :mode))
-                     (command (string-trim command))
                      (record
                       (list :type "command" :time (float-time)
                             :keys keys :command command :source source
@@ -346,9 +503,43 @@
                   (error-message-string error-data)))))))
 
 (defun my/key-observer--periodic-save-h ()
-  "Save a nonempty batch without changing explicit checkpoint semantics."
-  (when my/key-observer--pending
-    (my/key-observer--save-h)))
+  "Request one idle checkpoint, with a bounded postponement of its start."
+  (when (and (equal (plist-get my/key-observer--session :status) "recording")
+             my/key-observer--pending
+             (not my/key-observer--save-requested))
+    (setq my/key-observer--save-requested t
+          my/key-observer--save-idle-timer
+          (run-with-idle-timer my/key-observer-save-idle-delay nil
+                               #'my/key-observer--background-save-h)
+          my/key-observer--save-latest-timer
+          (run-at-time my/key-observer-save-max-delay nil
+                       #'my/key-observer--background-save-h t))))
+
+(defun my/key-observer--background-save-h (&optional force)
+  "Advance a short save slice; FORCE limits postponement during continuous input."
+  (when (and my/key-observer--save-requested
+             (equal (plist-get my/key-observer--session :status) "recording"))
+    (my/key-observer--cancel-timer 'my/key-observer--save-idle-timer)
+    (my/key-observer--cancel-timer 'my/key-observer--save-continuation-timer)
+    (when force
+      (setq my/key-observer--save-forced t)
+      (my/key-observer--cancel-timer 'my/key-observer--save-latest-timer))
+    (condition-case error-data
+        (progn
+          (if (and (input-pending-p)
+                   (not (and my/key-observer--save-forced
+                             my/key-observer--save-yielded)))
+              (setq my/key-observer--save-yielded t)
+            (setq my/key-observer--save-yielded nil)
+            (my/key-observer--begin-checkpoint)
+            (my/key-observer--flush-slice t))
+          (if (or my/key-observer--checkpoint my/key-observer--save-yielded)
+              (setq my/key-observer--save-continuation-timer
+                    (run-at-time my/key-observer--save-yield-delay nil
+                                 #'my/key-observer--background-save-h))
+            (my/key-observer--cancel-background-save)
+            (my/key-observer--refresh)))
+      ((error quit) (my/key-observer--save-error error-data)))))
 
 (defun my/key-observer--activate ()
   "Enable the shared collector without opening a Keycast display frame."
@@ -371,15 +562,17 @@
   (interactive)
   (when (my/key-observer--active-p)
     (user-error "已有观察会话，请继续或结束当前会话"))
-  (when my/key-observer--pending
+  (when (or my/key-observer--pending my/key-observer--checkpoint)
     (user-error "尚有未保存数据，请先解决保存错误并查看日志"))
   (require 'keycast)
   (require 'keyfreq)
   (unless (and (or (null my/key-observer-duration)
                    (and (numberp my/key-observer-duration)
                         (> my/key-observer-duration 0)))
-               (> my/key-observer-save-interval 0))
-    (user-error "观察时长和保存间隔必须大于零"))
+               (> my/key-observer-save-interval 0)
+               (>= my/key-observer-save-idle-delay 0)
+               (>= my/key-observer-save-max-delay 0))
+    (user-error "观察时长和保存间隔必须大于零，空闲等待与最大延期不能为负"))
   (my/key-observer--cancel-timer 'my/key-observer--finish-timer)
   (make-directory my/key-observer-directory t)
   (set-file-modes my/key-observer-directory #o700)
@@ -389,6 +582,7 @@
                                        my/key-observer-directory) t)))
     (set-file-modes directory #o700)
     (setq my/key-observer--frequencies (make-hash-table :test #'equal)
+          my/key-observer--last-save-metrics nil
           my/key-observer--session
           (list :version 2 :id (file-name-nondirectory directory)
                 :host (system-name)
@@ -541,17 +735,30 @@
       (my/key-observer--button "[查看统计]" #'my/key-observer-statistics))
     (insert "\n\n记录各个 Emacs 客户端的操作，包含原始输入键序列。\n"
             "持续观察按天保存，Emacs 重启后恢复；手动暂停和结束仍生效。\n"
-            "终端进程输入不记录；限时观察的暂停不会延长截止时间。\n"
+            "终端进程输入和纯鼠标移动不记录；点击、拖选与滚轮仍记录。\n"
+            "限时观察的暂停不会延长截止时间。\n"
             "手动操作、宏回放和 Evil 重复分别统计。\n"
             "Keyfreq 页面展示当前会话累计手动操作；按键提示来自原编辑模式。\n"
             "每日复盘由 Codex 当前聊天汇报，汇报后继续记录。\n")
-    (goto-char (min point-before (point-max)))))
+    (goto-char (min point-before (point-max)))
+    (setq my/key-observer--panel-state (my/key-observer--panel-state-key))))
+
+(defun my/key-observer--panel-state-key ()
+  "Return the session values actually displayed in the control panel."
+  (mapcar (lambda (key) (plist-get my/key-observer--session key))
+          '(:status :events :deadline :directory :error)))
 
 (defun my/key-observer--refresh ()
-  "Refresh the panel if it exists, without changing focus or window layout."
-  (when-let* ((buffer (get-buffer my/key-observer--panel)))
-    (with-current-buffer buffer (my/key-observer--render)))
-  (force-mode-line-update t))
+  "Refresh changed, visible controls without changing focus or window layout."
+  (when-let* ((buffer (get-buffer my/key-observer--panel))
+              ((get-buffer-window buffer 'visible)))
+    (with-current-buffer buffer
+      (unless (equal my/key-observer--panel-state (my/key-observer--panel-state-key))
+        (my/key-observer--render))))
+  (let ((status (plist-get my/key-observer--session :status)))
+    (unless (equal status my/key-observer--mode-line-status)
+      (setq my/key-observer--mode-line-status status)
+      (force-mode-line-update t))))
 
 (defun my/key-observer ()
   "Open observation controls; recording starts only with the Start button."
