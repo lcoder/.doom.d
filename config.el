@@ -116,9 +116,110 @@
   :init
   (map! :nvi "M-o" #'expreg-expand
         :nvi "M-p" #'expreg-contract)
-  ;; 仅在文本类模式启用句子级扩选（官方建议）
   (after! expreg
+    (defun my/expreg-dart--child (node type)
+      "Return the immediate named child of NODE with TYPE, if any."
+      (cl-loop for index below (treesit-node-child-count node t)
+               for child = (treesit-node-child node index t)
+               when (equal (treesit-node-type child) type)
+               return child))
+
+    (defun my/expreg-dart--selector-p (node)
+      "Return non-nil when NODE continues a Dart receiver expression."
+      (member (treesit-node-type node)
+              '("selector" "unconditional_assignable_selector"
+                "conditional_assignable_selector")))
+
+    (defun my/expreg-dart--receiver (node)
+      "Find the primary expression preceding NODE's selector chain."
+      (while (and node
+                  (or (my/expreg-dart--selector-p node)
+                      (equal (treesit-node-type node) "comment")))
+        ;; Include anonymous siblings so commas/operators stop the search.
+        (setq node (treesit-node-prev-sibling node)))
+      (when (and node
+                 (member (treesit-node-type node)
+                         '("identifier" "this" "super" "parenthesized_expression"
+                           "list_literal" "set_or_map_literal" "string_literal"
+                           "const_object_expression" "new_expression"
+                           "function_expression" "decimal_integer_literal"
+                           "hex_integer_literal" "decimal_floating_point_literal"
+                           "true" "false" "null_literal"))
+                 (not (treesit-node-check node 'has-error)))
+        node))
+
+    (defun my/expreg-dart-calls ()
+      "Return complete Dart calls containing point, including flattened calls."
+      (when (derived-mode-p 'dart-mode 'dart-ts-mode)
+        (when-let* ((parser (cl-find 'dart (treesit-parser-list)
+                                     :key #'treesit-parser-language)))
+          (let ((origin (point))
+                (node (treesit-node-at (point) parser))
+                seen ranges)
+            (while node
+              (when-let* ((receiver (my/expreg-dart--receiver node))
+                          (begin (treesit-node-start receiver)))
+                (unless (memq begin seen)
+                  (push begin seen)
+                  (let ((selector (treesit-node-next-sibling receiver)))
+                    (while (and selector
+                                (or (my/expreg-dart--selector-p selector)
+                                    (equal (treesit-node-type selector) "comment"))
+                                (not (treesit-node-check selector 'has-error)))
+                      (when-let* ((part (my/expreg-dart--child selector "argument_part"))
+                                  (arguments (my/expreg-dart--child part "arguments"))
+                                  (end (treesit-node-end arguments)))
+                        (when (and (<= begin origin) (<= origin end)
+                                   (eq (char-after (treesit-node-start arguments)) ?\()
+                                   (eq (char-before end) ?\)))
+                          (push (cons 'my/expreg-dart-call (cons begin end)) ranges)))
+                      (setq selector (treesit-node-next-sibling selector))))))
+              (setq node (treesit-node-parent node)))
+            ranges))))
+
+    (defun my/expreg-preserve-manual-region-a (fn &rest args)
+      "Make FN expand a new character region without dropping selected text."
+      (let ((bounds (and (use-region-p)
+                         (not (bound-and-true-p rectangle-mark-mode))
+                         (not (and (eq (bound-and-true-p evil-state) 'visual)
+                                   (memq evil-visual-selection '(line screen-line block))))
+                         (cons (region-beginning) (region-end)))))
+        (if (or (null bounds)
+                (= (car bounds) (cdr bounds))
+                (equal bounds (cdar expreg--prev-regions)))
+            (apply fn args)
+          (let* ((functions expreg-functions)
+                 ;; Keep even a single selected bracket in the contraction history.
+                 (expreg--validation-white-list
+                  (cons 'my/expreg-manual-region expreg--validation-white-list))
+                 (expreg-functions
+                  (list
+                   (lambda ()
+                     (cons
+                      (cons 'my/expreg-manual-region bounds)
+                      (cl-remove-if-not
+                       (lambda (range)
+                         (and (<= (cadr range) (car bounds))
+                              (>= (cddr range) (cdr bounds))))
+                       (mapcan (lambda (function)
+                                 (save-excursion (funcall function)))
+                               functions)))))))
+            (apply fn args)))))
+
+    (setq-default expreg-functions
+                  (cons #'my/expreg-dart-calls
+                        (remq #'my/expreg-dart-calls (default-value 'expreg-functions))))
+    (dolist (buffer (buffer-list))
+      (with-current-buffer buffer
+        (when (local-variable-p 'expreg-functions)
+          (setq expreg-functions
+                (cons #'my/expreg-dart-calls
+                      (remq #'my/expreg-dart-calls expreg-functions))))))
+    (advice-add #'expreg-expand :around #'my/expreg-preserve-manual-region-a)
+
+    ;; 仅在文本类模式启用句子级扩选（官方建议）
     (defun my/enable-expreg-sentence-in-text-mode ()
+      "Enable sentence expansion in the current text buffer."
       (make-local-variable 'expreg-functions)
       (add-to-list 'expreg-functions #'expreg--sentence))
     (add-hook 'text-mode-hook #'my/enable-expreg-sentence-in-text-mode)))
