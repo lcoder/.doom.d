@@ -261,6 +261,25 @@
   (custom-set-faces
    '(org-ellipsis ((t (:family "Sarasa Term SC Nerd" :foreground "#E6DC88"))))))
 
+;; Org 的相对行号与普通、可视状态下的 j/k 都按可见屏幕行计数。
+(after! org
+  (defun my/org-screen-line-numbers-h ()
+    "Count visible screen lines in Org without enabling hidden line numbers."
+    (setq-local display-line-numbers-type 'visual)
+    (when display-line-numbers
+      (setq-local display-line-numbers 'visual)))
+
+  (add-hook 'org-mode-hook #'my/org-screen-line-numbers-h)
+  (dolist (buffer (buffer-list))
+    (with-current-buffer buffer
+      (when (derived-mode-p 'org-mode)
+        (my/org-screen-line-numbers-h))))
+
+  (map! :after evil
+        :map org-mode-map
+        :nv "j" #'evil-next-visual-line
+        :nv "k" #'evil-previous-visual-line))
+
 (use-package! valign
   :hook (org-mode . valign-mode))
 
