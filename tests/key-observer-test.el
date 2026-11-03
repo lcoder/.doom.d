@@ -167,6 +167,31 @@
     (dolist (file (directory-files directory t "\\.jsonl?\\'"))
       (should (= (logand #o777 (file-modes file)) #o600)))))
 
+(ert-deftest my/key-observer-metadata-write-skips-lsp-file-rename-notifications ()
+  (skip-unless (require 'lsp-mode nil t))
+  (my/key-observer-test--isolated
+    (let ((lsp-apply-edits-after-file-operations t)
+          (file (expand-file-name "metadata.json" directory))
+          requests)
+      ;; Model a server whose broad rename filter also matches runtime files.
+      ;; Keep the real rename advice and file operations, but avoid server I/O.
+      (cl-letf (((symbol-function 'lsp--send-will-rename-files-p)
+                 (lambda (_path) t))
+                ((symbol-function 'lsp-request)
+                 (lambda (method _params &rest _options)
+                   (push method requests)
+                   nil)))
+        (my/key-observer--write-json file '(:version 1))
+        (my/key-observer--write-json file '(:version 2))
+        (should-not requests)
+        (should (= (plist-get (my/key-observer-test--json "metadata.json") :version) 2))
+        (should (= (logand #o777 (file-modes file)) #o600))
+        (should (equal (directory-files directory nil directory-files-no-dot-files-regexp)
+                       '("metadata.json")))
+        ;; Normal project renames must still notify LSP outside the writer.
+        (rename-file file (expand-file-name "renamed.json" directory))
+        (should (equal requests '("workspace/willRenameFiles")))))))
+
 (ert-deftest my/key-observer-background-honors-idle-max-delay-and-input ()
   (my/key-observer-test--isolated
     (my/key-observer-test--queue 1)

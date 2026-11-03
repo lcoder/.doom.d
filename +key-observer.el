@@ -5,6 +5,8 @@
 (require 'button)
 (require 'subr-x)
 
+(defvar lsp-apply-edits-after-file-operations)
+
 (use-package! keycast :commands (keycast-invisible-mode keycast-format))
 (use-package! keyfreq :commands keyfreq-show)
 
@@ -132,7 +134,10 @@ record, formatting a date only once per day, outside command hooks."
           (with-temp-file temporary
             (insert (json-serialize data :null-object nil :false-object :false)
                     "\n"))
-          (rename-file temporary file t))
+          ;; This atomic metadata replacement is not a project file rename.
+          ;; LSP's global rename advice otherwise inherits the editing buffer.
+          (let ((lsp-apply-edits-after-file-operations nil))
+            (rename-file temporary file t)))
       (when (file-exists-p temporary) (delete-file temporary)))))
 
 (defun my/key-observer--frequency-data ()
