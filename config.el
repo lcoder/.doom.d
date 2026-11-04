@@ -515,9 +515,43 @@ Suspend the pending idle collection until input and candidate selection finish."
           ("s" "sh")
           ("z" "zh")
           ("l" "n")))
-  ;; 程序员友好：prog-mode 下默认英文，仅在注释/字符串里中文
+  (defun my/pyim-probe-program-mode ()
+    "Prefer English in code, recognizing nested Dart string interpolation."
+    (if (and (derived-mode-p 'dart-ts-mode)
+             (fboundp 'treesit-node-on)
+             (treesit-parser-list))
+        (let* ((position (point))
+               ;; 输入位置左侧的字符决定上下文，避免把字符串前的空白
+               ;; 或插值后的文字归入右侧的语法节点。
+               (node (treesit-node-on (max (point-min) (1- position)) position))
+               (english t)
+               done)
+          (while (and node (not done))
+            (pcase (treesit-node-type node)
+              ((or "comment" "documentation_comment")
+               (setq english
+                     (and (= position (treesit-node-end node))
+                          (eq (char-before position) ?/)
+                          (eq (char-before (1- position)) ?*))
+                     done t))
+              ("string_literal"
+               (setq english (>= position (treesit-node-end node))
+                     done t))
+              ("template_substitution"
+               ;; ${...} 后已经回到字符串；$name 后仍可继续输入变量名。
+               (unless (and (= position (treesit-node-end node))
+                            (eq (char-before position) ?}))
+                 (setq done t)))
+              ("ERROR"
+               (setq english (pyim-probe-program-mode)
+                     done t)))
+            (setq node (treesit-node-parent node)))
+          english)
+      (pyim-probe-program-mode)))
+
+  ;; 程序员友好：代码区默认英文，字符串和注释可输入中文。
   (setq-default pyim-english-input-switch-functions
-                '(pyim-probe-program-mode
+                '(my/pyim-probe-program-mode
                   pyim-probe-isearch-mode))
   ;; 基础词库（优先保证常用词可用）
   (when (require 'pyim-basedict nil t)
