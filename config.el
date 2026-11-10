@@ -385,6 +385,49 @@ Keep the original pattern when pyim is unavailable or conversion fails."
   (advice-add 'evil-ex-make-search-pattern :filter-return
               #'my/evil-pinyin--expand-pattern))
 
+;; Consult 行搜索等非文件补全也会经过 Doom 中文模块的拼音扩展。
+;; 替换其无条件扩展，避免长标识符生成超出 Emacs 限制的正则。
+(after! (pyim orderless)
+  (defcustom my/orderless-pinyin-max-query-length 8
+    "Maximum component length for automatic pinyin completion matching.
+Longer components retain their original Orderless regexp."
+    :type 'natnum
+    :group 'orderless)
+
+  (defun my/orderless-pinyin--expand-regexp (regexp)
+    "Expand short lowercase REGEXP for pinyin completion when safe.
+Preserve nil, code identifiers and explicit regexps.  Fall back to REGEXP
+if expansion fails or exceeds Emacs's regexp compilation limits."
+    (save-match-data
+      (if (and (stringp regexp)
+               (<= (length regexp) my/orderless-pinyin-max-query-length)
+               (let ((case-fold-search nil))
+                 (string-match-p "\\`[a-z]+\\'" regexp)))
+          (condition-case nil
+              (let ((expanded (if (modulep! :editor evil +everywhere)
+                                  (evil-pinyin--build-regexp-string regexp)
+                                (pyim-cregexp-build regexp)))
+                    (case-fold-search t))
+                (if (and (stringp expanded) (> (length expanded) 0))
+                    (progn
+                      ;; Orderless 会把 literal 和 regexp 两种匹配合并成 OR。
+                      ;; 检查合并结果，覆盖只检查扩展本身时遗漏的临界情况。
+                      (string-match-p
+                       (rx-to-string
+                        `(or (regexp ,(regexp-quote regexp))
+                             (regexp ,expanded)) t)
+                       "")
+                      expanded)
+                  regexp))
+            (error regexp))
+        regexp)))
+
+  ;; 等待 pyim 的 Doom 配置先注册原 advice，保证延迟加载时也能替换。
+  (dolist (function '(evil-pinyin--build-regexp-string pyim-cregexp-build))
+    (advice-remove 'orderless-regexp function))
+  (advice-add 'orderless-regexp :filter-return
+              #'my/orderless-pinyin--expand-regexp))
+
 ;; 文件路径不做拼音/正则扩展：长路径可能生成过大的正则，导致文件选择失败。
 ;; 独立样式保留无序多关键词匹配，不影响其他补全类别或中文输入。
 (after! orderless
