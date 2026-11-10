@@ -49,6 +49,17 @@
   (setq corfu-preselect 'first
         +corfu-want-ret-to-confirm t))
 
+;; 本地项目每次读取文件列表时重新枚举，及时发现外部工具的文件变动。
+(after! projectile
+  (defun my/projectile-project-files--fresh-local-a (fn project-root)
+    "Call FN for PROJECT-ROOT with fresh local files and unchanged remote caching."
+    (let ((projectile-enable-caching
+           (and (file-remote-p project-root) projectile-enable-caching)))
+      (funcall fn project-root)))
+
+  (advice-add #'projectile-project-files :around
+              #'my/projectile-project-files--fresh-local-a))
+
 ;; With-Editor 必须先移除缓冲区保护，再取消客户端并清理终端。
 (after! with-editor
   (defun my/server-edit-abort--with-editor-a (fn &rest args)
