@@ -1,7 +1,6 @@
 ;;; $DOOMDIR/config.el -*- lexical-binding: t; -*-
 
 (load! "+ui")
-(load! "+key-observer")
 
 ;; Set the notes location without loading Org or its database integration.
 (setq org-roam-directory (expand-file-name "roam" (or org-directory "~/org")))
@@ -223,12 +222,6 @@
       (make-local-variable 'expreg-functions)
       (add-to-list 'expreg-functions #'expreg--sentence))
     (add-hook 'text-mode-hook #'my/enable-expreg-sentence-in-text-mode)))
-
-;; Bind a convenient key (SPC t k) to toggle the command window
-(map! :leader
-      :desc "Toggle command log window"
-      "t k" #'dw/toggle-command-window)
-;; --- end of 展示当前key的日志 ---
 
 ;; If you use `org' and don't want your org files in the default location below,
 ;; change `org-directory'. It must be set before org loads!

@@ -4,15 +4,6 @@
 (require 'seq)
 (require 'subr-x)
 (defvar-local my/dev-org-font-cookie nil)
-(defvar clm/command-log-buffer)
-(defvar clm/recent-history-string)
-(defvar clm/command-repetitions)
-(defvar clm/last-keyboard-command)
-
-;; 按键展示沿用 SPC t k，阻止软件包加载时另外注册 C-c o。
-(use-package! command-log-mode
-  :defer t
-  :init (setq command-log-mode-key-binding-open-log nil))
 
 (defun my/first-available-font-family (families)
   "Return the first available font in FAMILIES."
@@ -309,39 +300,6 @@ Wrap the Valign after-advice too, so empty idle callbacks never realign tables."
 (defun my/dev-org-debug-h ()
   (setq-local debug-on-error my/org-crash-debug-on-error))
 
-(defvar dw/command-window-frame nil)
-(defun my/dev-command-log-stop ()
-  "Stop both command logging and the package's text collection hooks."
-  (when (fboundp 'global-command-log-mode) (global-command-log-mode -1))
-  (remove-hook 'post-self-insert-hook #'clm/recent-history)
-  (remove-hook 'post-command-hook #'clm/zap-recent-history)
-  (when (boundp 'clm/recent-history-string) (setq clm/recent-history-string ""))
-  (when (boundp 'clm/command-repetitions) (setq clm/command-repetitions 0))
-  (when (boundp 'clm/last-keyboard-command) (setq clm/last-keyboard-command nil)))
-
-(defun dw/toggle-command-window ()
-  "Toggle the command display and its recording together."
-  (interactive)
-  (require 'posframe)
-  (require 'command-log-mode)
-  (if (and dw/command-window-frame (frame-live-p dw/command-window-frame))
-      (progn
-        (my/dev-command-log-stop)
-        (when (buffer-live-p clm/command-log-buffer)
-          (posframe-delete clm/command-log-buffer)
-          (kill-buffer clm/command-log-buffer))
-        (setq dw/command-window-frame nil clm/command-log-buffer nil))
-    (my/dev-command-log-stop)
-    (add-hook 'post-self-insert-hook #'clm/recent-history)
-    (add-hook 'post-command-hook #'clm/zap-recent-history)
-    (setq clm/command-log-buffer (get-buffer-create " *command-log*"))
-    (global-command-log-mode 1)
-    (setq dw/command-window-frame
-          (posframe-show clm/command-log-buffer :position '(0 . 0)
-                         :poshandler #'posframe-poshandler-frame-top-right-corner
-                         :width 35 :height 4 :internal-border-width 2
-                         :internal-border-color "#c792ea"))))
-
 (defvar my/dev-dirvish-warning-shown nil)
 (defun my/dirvish-ignore-missing-filename-a (fn &rest args)
   "Handle the known nil filename redisplay case with one diagnostic."
@@ -389,9 +347,6 @@ Preserve the current font on RELOAD and while a size adjustment is active."
 (dolist (buffer (buffer-list))
   (with-current-buffer buffer
     (when (derived-mode-p 'org-mode) (my/dev-org-font-h))))
-(with-eval-after-load 'command-log-mode
-  (unless (and dw/command-window-frame (frame-live-p dw/command-window-frame))
-    (my/dev-command-log-stop)))
 (with-eval-after-load 'projectile
   (when my/dev-project-search-directories
     (setq projectile-project-search-path
