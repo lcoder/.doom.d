@@ -235,6 +235,9 @@
       (load! "testing" +local-languages--directory))
     (+local-languages--install-compat 'rustic-cargo)))
 (after! lsp-javascript (setq lsp-clients-typescript-prefer-use-project-ts-server t))
+(when (modulep! :tools debugger)
+  ;; Doom binds SPC d b before Dape is loaded.
+  (autoload 'dape-breakpoint-toggle "dape" nil t))
 (after! dape
   (when (modulep! :lang rust)
     (unless (featurep '+local-languages-debug)
