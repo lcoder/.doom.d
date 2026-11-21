@@ -17,6 +17,51 @@
       (when (stringp family)
         (setq doom-font (font-spec :family family :size my/dev-font-size))))))
 
+(when (featurep 'neomacs)
+  (defun my/neomacs-normalize-font-a (original font)
+    "Parse sized FONT directly when Neomacs already supplies its family.
+Doom's XLFD lookup cannot match even the active font on Neomacs 0.0.20."
+    (let* ((name (cond ((fontp font) (font-xlfd-name font))
+                       ((stringp font) font)))
+           (spec (and name (font-spec :name name))))
+      (if (and spec (font-get spec :family) (font-get spec :size))
+          spec
+        (funcall original font))))
+  (advice-add 'doom-normalize-font :around #'my/neomacs-normalize-font-a))
+
+(when (featurep 'neomacs)
+  (defun my/neomacs-org-fold-marker (overlay)
+    "Display the Org ellipsis with its own face on a hidden fold OVERLAY."
+    (when (and (overlay-buffer overlay)
+               (eq (overlay-get overlay 'isearch-open-invisible)
+                   #'org-fold-core--isearch-show))
+      (with-current-buffer (overlay-buffer overlay)
+        (let* ((spec (overlay-get overlay 'invisible))
+               (marker (and spec (eq (invisible-p spec) 2)
+                            (org-fold-core-get-folding-spec-property spec :ellipsis))))
+          ;; Neomacs 0.0.20 drops the face from display-table ellipsis glyphs.
+          (overlay-put overlay 'display
+                       (when (stringp marker) (propertize marker 'face 'org-ellipsis)))))))
+
+  (defun my/neomacs-org-fold-region-a (from to fold &optional _spec)
+    (when (and fold (eq org-fold-core-style 'overlays))
+      (dolist (overlay (overlays-at from))
+        (when (and (= from (overlay-start overlay)) (= to (overlay-end overlay)))
+          (my/neomacs-org-fold-marker overlay)))))
+
+  (defun my/neomacs-org-refresh-fold-markers-h ()
+    (when (derived-mode-p 'org-mode)
+      (save-restriction
+        (widen)
+        (mapc #'my/neomacs-org-fold-marker (overlays-in (point-min) (point-max))))))
+
+  (after! org
+    (advice-add 'org-fold-core-region :after #'my/neomacs-org-fold-region-a)
+    ;; Isearch temporarily reveals a fold by toggling its existing overlay.
+    (advice-add 'isearch-open-overlay-temporary :after #'my/neomacs-org-fold-marker)
+    (advice-add 'isearch-open-necessary-overlays :after #'my/neomacs-org-fold-marker)
+    (add-hook 'visible-mode-hook #'my/neomacs-org-refresh-fold-markers-h)))
+
 (defun my/dev-ui-maple-fontset-h (&optional _context)
   "Use Maple CJK glyphs after Doom initializes fonts or creates a frame."
   (let (configured-fontsets)
@@ -32,13 +77,6 @@
               (set-fontset-font fontset characters
                                 (font-spec :family family) frame))
             (push fontset configured-fontsets)))))))
-
-(defun my/dev-ui-field-weight-h ()
-  "Use medium weight for field names and active snippet fields, keeping their colors."
-  (dolist (face '(font-lock-property-name-face yas-field-highlight-face))
-    (when (facep face)
-      (set-face-attribute face nil :weight 'medium)
-      (set-face-attribute face t :weight 'medium))))
 
 (defun my/dev-ui-corfu-faces-h ()
   "Keep Corfu selection and annotations readable in dark and light themes."
@@ -70,17 +108,13 @@
         (set-face-attribute 'corfu-annotations nil
                             :foreground (doom-blend foreground background 0.9))))))
 
-;; Zen: keep surrounding code readable and focus Rust on whole definitions.
 (defcustom my/zen-focus-foreground-ratio 0.6
   "Proportion of the theme foreground retained in unfocused text."
   :type 'float
   :group 'faces)
 
-(defvar-local my/zen-focus--previous-thing nil
-  "Localness and value of the focus scope before the Rust override.")
-
 (defun my/zen-focus-faces-h ()
-  "Blend unfocused text with the theme background without changing syntax faces."
+  "Blend unfocused text with the theme background for the writing focus view."
   (when (facep 'focus-unfocused)
     (require 'color)
     (let* ((frame (if (display-graphic-p)
@@ -109,44 +143,8 @@
           (set-face-attribute 'focus-unfocused nil :foreground color :inherit nil)
           (set-face-attribute 'focus-unfocused t :foreground color :inherit nil))))))
 
-(defun my/zen-rust-definition-bounds ()
-  "Return the native Rust definition at point, or the current line as a fallback."
-  (save-excursion
-    (save-match-data
-      (let* ((origin (point))
-             (bounds (condition-case nil
-                         (bounds-of-thing-at-point 'defun)
-                       (error nil))))
-        (if (and bounds (<= (car bounds) origin) (<= origin (cdr bounds)))
-            bounds
-          (cons (line-beginning-position)
-                (min (point-max) (1+ (line-end-position)))))))))
-
-(defun my/zen-rust-focus-h ()
-  "Use native Rust definition bounds while Focus is enabled, then restore its scope."
-  (when (derived-mode-p 'rust-mode 'rustic-mode 'rust-ts-mode)
-    (if (bound-and-true-p focus-mode)
-        (unless my/zen-focus--previous-thing
-          (setq-local my/zen-focus--previous-thing
-                      (cons (local-variable-p 'focus-current-thing)
-                            focus-current-thing))
-          (setq-local focus-current-thing 'my/zen-rust-definition))
-      (when my/zen-focus--previous-thing
-        (if (car my/zen-focus--previous-thing)
-            (setq-local focus-current-thing (cdr my/zen-focus--previous-thing))
-          (kill-local-variable 'focus-current-thing))
-        (kill-local-variable 'my/zen-focus--previous-thing)))))
-
 (after! focus
-  (put 'my/zen-rust-definition 'bounds-of-thing-at-point
-       #'my/zen-rust-definition-bounds)
-  (add-hook 'focus-mode-hook #'my/zen-rust-focus-h)
-  (my/zen-focus-faces-h)
-  (dolist (buffer (buffer-list))
-    (with-current-buffer buffer
-      (when (bound-and-true-p focus-mode)
-        (my/zen-rust-focus-h)
-        (focus-update)))))
+  (my/zen-focus-faces-h))
 
 (defun my/dev-org-font-h ()
   "Apply an Org font without modifying the global fontset."
@@ -213,92 +211,12 @@ Wrap the Valign after-advice too, so empty idle callbacks never realign tables."
 (after! org-indent
   (my/org-indent--install-h))
 
-(defun my/dev-existing-notes-directory ()
-  "Retain an existing notes location; never create a competing notes library."
-  (if my/dev-notes-directory
-      (expand-file-name my/dev-notes-directory)
-    (seq-find #'file-accessible-directory-p
-              (delq nil (list (and (boundp 'org-directory) org-directory)
-                              (expand-file-name
-                               "Library/Mobile Documents/com~apple~CloudDocs/org/" "~")
-                              (expand-file-name "org/" "~"))))))
-
 (defun my/org-directory ()
   "Return the configured accessible notes directory."
   (unless (and (boundp 'org-directory) (stringp org-directory)
                (file-accessible-directory-p org-directory))
     (user-error "请在本机 local.el 设置 my/dev-notes-directory 为已有笔记目录"))
   org-directory)
-
-(defun my/dev-state-directory ()
-  "Return a machine-local state directory, outside the synced configuration."
-  (expand-file-name "dev/"
-                    (if (and (boundp 'doom-cache-dir) (stringp doom-cache-dir))
-                        doom-cache-dir
-                      (expand-file-name "var/" user-emacs-directory))))
-
-(defvar my/org-crash-log-file nil)
-(setq my/org-crash-log-file
-      (expand-file-name "org-errors.log" (my/dev-state-directory)))
-(defvar my/org--command-error-fn nil)
-(defvar my/org--ignored-errors
-  '(quit beginning-of-line end-of-line beginning-of-buffer end-of-buffer))
-(defvar my/org-crash-debug-on-error nil)
-
-(defun my/dev-log-rotate (file incoming-bytes)
-  "Rotate FILE before appending INCOMING-BYTES, retaining bounded history."
-  (when (and (file-exists-p file)
-             (> (+ (file-attribute-size (file-attributes file)) incoming-bytes)
-                my/dev-log-max-bytes))
-    (if (<= my/dev-log-history-count 0)
-        (delete-file file)
-      (let ((oldest (format "%s.%d" file my/dev-log-history-count)))
-        (when (file-exists-p oldest) (delete-file oldest)))
-      (cl-loop for i downfrom my/dev-log-history-count to 1
-               for source = (if (= i 1) file (format "%s.%d" file (1- i)))
-               for target = (format "%s.%d" file i)
-               when (file-exists-p source) do (rename-file source target t)))))
-
-(defun my/org--log (fmt &rest args)
-  "Append one bounded record to the local Org error log."
-  (let* ((record (concat (format-time-string "[%Y-%m-%d %H:%M:%S] ")
-                         (apply #'format fmt args) "\n"))
-         (record (my/dev-log--bounded-string record
-                                             (min 32768 my/dev-log-max-bytes))))
-    (make-directory (file-name-directory my/org-crash-log-file) t)
-    (my/dev-log-rotate my/org-crash-log-file (string-bytes record))
-    (let ((coding-system-for-write 'utf-8-unix))
-      (write-region record nil my/org-crash-log-file t 'silent))))
-
-(defun my/dev-log--bounded-string (string limit)
-  "Limit STRING to LIMIT UTF-8 bytes without cutting a multibyte character."
-  (let ((low 0) (high (length string)))
-    (while (< low high)
-      (let ((middle (/ (+ low high 1) 2)))
-        (if (<= (string-bytes (encode-coding-string (substring string 0 middle) 'utf-8)) limit)
-            (setq low middle)
-          (setq high (1- middle)))))
-    (substring string 0 low)))
-
-(defun my/org--ignorable-error-p (err)
-  (memq (car-safe err) my/org--ignored-errors))
-
-(defun my/org--log-error (err context caller)
-  "Record useful error context without copying unrelated Messages contents."
-  (my/org--log "error: %s\ncommand: %s caller: %s context: %s\nmode: %s point: %s\nemacs: %s system: %s\nbacktrace:\n%s"
-               (error-message-string err) (or this-command last-command "N/A")
-               caller context major-mode (point) emacs-version system-type
-               (with-temp-buffer (backtrace) (buffer-string))))
-
-(defun my/org-command-error-logger (data context caller)
-  (when (and (derived-mode-p 'org-mode) (not (my/org--ignorable-error-p data)))
-    (condition-case nil (my/org--log-error data context caller) (error nil)))
-  (when (and my/org--command-error-fn
-             (not (eq my/org--command-error-fn #'my/org-command-error-logger)))
-    (funcall my/org--command-error-fn data context caller)))
-
-(defun my/dev-org-debug-h ()
-  (setq-local debug-on-error my/org-crash-debug-on-error))
 
 (defvar my/dev-dirvish-warning-shown nil)
 (defun my/dirvish-ignore-missing-filename-a (fn &rest args)
@@ -322,60 +240,28 @@ Preserve the current font on RELOAD and while a size adjustment is active."
                               (format "保留当前字体：%s" (error-message-string err))
                               :warning)))))
 
-(remove-hook 'after-make-frame-functions #'my/dev-after-frame-font-h)
 (when (fboundp 'doom-init-fonts-h)
   (advice-add 'doom-init-fonts-h :before #'my/dev-select-doom-fonts-h)
   (advice-add 'doom-init-fonts-h :after #'my/dev-ui-maple-fontset-h))
 ;; 普通新窗口不触发服务端字体初始化钩子，单独补齐其字符映射。
 (add-hook 'after-make-frame-functions #'my/dev-ui-maple-fontset-h 100)
 (my/dev-select-doom-fonts-h)
-(add-hook 'doom-load-theme-hook #'my/dev-ui-field-weight-h)
-(my/dev-ui-field-weight-h)
-(after! yasnippet
-  (my/dev-ui-field-weight-h))
 (add-hook 'doom-load-theme-hook #'my/dev-ui-corfu-faces-h)
 (add-hook 'doom-load-theme-hook #'my/zen-focus-faces-h)
 (after! corfu
   (my/dev-ui-corfu-faces-h))
-(when-let ((directory (my/dev-existing-notes-directory)))
-  (setq org-directory directory))
-(unless (eq command-error-function #'my/org-command-error-logger)
-  (setq my/org--command-error-fn command-error-function))
-(setq command-error-function #'my/org-command-error-logger)
-(add-hook 'org-mode-hook #'my/dev-org-debug-h)
 (add-hook 'org-mode-hook #'my/dev-org-font-h)
 (dolist (buffer (buffer-list))
   (with-current-buffer buffer
     (when (derived-mode-p 'org-mode) (my/dev-org-font-h))))
-(with-eval-after-load 'projectile
-  (when my/dev-project-search-directories
-    (setq projectile-project-search-path
-          (mapcar #'expand-file-name my/dev-project-search-directories))))
 (with-eval-after-load 'dirvish
   (when (fboundp 'dirvish--redisplay)
     (advice-add 'dirvish--redisplay :around #'my/dirvish-ignore-missing-filename-a)))
 
-;; Show signature help only when explicitly requested.
-(after! lsp-mode
-  (setq lsp-signature-auto-activate nil))
-
-;; Keep code lenses on their own visual line so wrapping cannot obscure indentation.
-(after! lsp-lens
-  (setq lsp-lens-place-position 'above-line))
-
-;; Reuse explicit code-block modes before probing Tree-sitter on each edit.
-(after! markdown-mode
-  (defun my/markdown--prefer-explicit-mode-a (function lang)
-    "Return a valid explicit mode for LANG, otherwise call FUNCTION.
-Honor Markdown's case priority and mode eligibility without caching results."
-    (or (and (fboundp 'markdown--lang-mode-predicate)
-             (cl-find-if #'markdown--lang-mode-predicate
-                         (list (cdr (assoc lang markdown-code-lang-modes))
-                               (cdr (assoc (downcase lang)
-                                           markdown-code-lang-modes)))))
-        (funcall function lang)))
-
-  (advice-add 'markdown-get-lang-mode :around
-              #'my/markdown--prefer-explicit-mode-a))
+;; Limit automatic templates to the existing Org rules, including exclusions.
+(setq +file-templates-alist
+      (seq-filter (lambda (rule)
+                    (memq (car rule) '(org-mode org-journal-mode doom-docs-org-mode)))
+                  +file-templates-alist))
 
 ;;; +ui.el ends here

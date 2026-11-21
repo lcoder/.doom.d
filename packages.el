@@ -1,63 +1,18 @@
 ;; -*- no-byte-compile: t; -*-
 ;;; $DOOMDIR/packages.el
 
-;; To install a package with Doom you must declare them here and run 'doom sync'
-;; on the command line, then restart Emacs for the changes to take effect -- or
-
-
-;; To install SOME-PACKAGE from MELPA, ELPA or emacsmirror:
-;; (package! some-package)
-
-;; To install a package directly from a remote git repo, you must specify a
-;; `:recipe'. You'll find documentation on what `:recipe' accepts here:
-;; https://github.com/radian-software/straight.el#the-recipe-format
-;; (package! another-package
-;;   :recipe (:host github :repo "username/repo"))
-
-;; If the package you are trying to install does not contain a PACKAGENAME.el
-;; file, or is located in a subdirectory of the repo, you'll need to specify
-;; `:files' in the `:recipe':
-;; (package! this-package
-;;   :recipe (:host github :repo "username/repo"
-;;            :files ("some-file.el" "src/lisp/*.el")))
-
-;; If you'd like to disable a package included with Doom, you can do so here
-;; with the `:disable' property:
-;; (package! builtin-package :disable t)
-
-;; You can override the recipe of a built in package without having to specify
-;; all the properties for `:recipe'. These will inherit the rest of its recipe
-;; from Doom or MELPA/ELPA/Emacsmirror:
-;; (package! builtin-package :recipe (:nonrecursive t))
-;; (package! builtin-package-2 :recipe (:repo "myfork/package"))
-
-;; Specify a `:branch' to install a package from a particular branch or tag.
-;; This is required for some packages whose default branch isn't 'master' (which
-;; our package manager can't deal with; see radian-software/straight.el#279)
-;; (package! builtin-package :recipe (:branch "develop"))
-
-;; Use `:pin' to specify a particular commit to install.
-;; (package! builtin-package :pin "1a2b3c4d5e")
-
-
-;; Doom's packages are pinned to a specific commit and updated from release to
-;; release. The `unpin!' macro allows you to unpin single packages...
-;; (unpin! pinned-package)
-;; ...or multiple packages
-;; (unpin! pinned-package another-pinned-package)
-;; ...Or *all* packages (NOT RECOMMENDED; will likely break things)
-;; (unpin! t)
-
-;; Smart select expand/shrink
 (package! expreg)
-
-;; Visual alignment for Org tables with CJK/wide characters.
 (package! valign)
-
-;; pyim 词库：清华大学开源词库
 (package! pyim-basedict)
 (package! pyim-tsinghua-dict
   :recipe (:host github :repo "redguardtoo/pyim-tsinghua-dict"))
+(package! super-save
+  :recipe (:host github :repo "bbatsov/super-save")
+  :pin "dae7cfe4bba83904d1567e14cbbd7ed141ab37a1")
 
-;; org-babel: dart/flutter 代码块执行
-(package! ob-dart)
+;; Font-lock for languages without a grammar-independent built-in mode.
+(package! rust-mode :pin "0058837c048cc031ca1a13f598a6a6604777458b")
+(package! dart-mode :pin "ea9c2204f3e27b5419b9c5dba8b2078b22eb8461")
+(package! typescript-mode :pin "2535780bdb318d86761b9bd21b0347ca6a89628f")
+(package! yaml-mode :pin "93dba98c050e9abfc623ec66aa499dbbb46b2fe1")
+(package! markdown-mode :pin "76cb4ffecfdf95ee769e5cb4608e04202c3c1521")

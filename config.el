@@ -1,230 +1,66 @@
 ;;; $DOOMDIR/config.el -*- lexical-binding: t; -*-
 
 (load! "+ui")
+(load! "+org-src")
 
-;; Set the notes location without loading Org or its database integration.
-(setq org-roam-directory (expand-file-name "roam" (or org-directory "~/org")))
-
-;; Place your private configuration here! Remember, you do not need to run 'doom
-;; sync' after modifying this file!
-
-
-;; Some functionality uses this to identify you, e.g. GPG configuration, email
-;; clients, file templates and snippets. It is optional.
-;; (setq user-full-name "John Doe"
-;;       user-mail-address "john@doe.com")
-
-;; Doom exposes five (optional) variables for controlling fonts in Doom:
-;;
-;; - `doom-font' -- the primary font to use
-;; - `doom-variable-pitch-font' -- a non-monospace font (where applicable)
-;; - `doom-big-font' -- used for `doom-big-font-mode'; use this for
-;;   presentations or streaming.
-;; - `doom-symbol-font' -- for symbols
-;; - `doom-serif-font' -- for the `fixed-pitch-serif' face
-;;
-;; See 'C-h v doom-font' for documentation and more examples of what they
-;; accept. For example:
-;;
-;;(setq doom-font (font-spec :family "Fira Code" :size 12 :weight 'semi-light)
-;;      doom-variable-pitch-font (font-spec :family "Fira Sans" :size 13))
-;;
-;; If you or Emacs can't find your font, use 'M-x describe-font' to look them
-;; up, `M-x eval-region' to execute elisp code, and 'M-x doom/reload-font' to
-;; refresh your font settings. If Emacs still can't find your font, it likely
-;; wasn't installed correctly. Font issues are rarely Doom issues!
-
-;; There are two ways to load a theme. Both assume the theme is installed and
-;; available. You can either set `doom-theme' or manually load a theme with the
-;; `load-theme' function. This is the default:
-(setq doom-theme 'doom-moonlight)
-
-;; This determines the style of line numbers in effect. If set to `nil', line
-;; numbers are disabled. For relative line numbers, set this to `relative'.
-(setq display-line-numbers-type 'relative)
+(setq doom-theme 'doom-moonlight
+      display-line-numbers-type 'relative
+      org-roam-directory (expand-file-name "roam" org-directory))
 
 ;; 补全弹窗默认选中第一项，Enter 接受候选而不换行。
 (after! corfu
   (setq corfu-preselect 'first
         +corfu-want-ret-to-confirm t))
 
-;; With-Editor 必须先移除缓冲区保护，再取消客户端并清理终端。
-(after! with-editor
-  (defun my/server-edit-abort--with-editor-a (fn &rest args)
-    "Cancel With-Editor sessions through their native cleanup path."
-    (if (bound-and-true-p with-editor-mode)
-        (with-editor-cancel current-prefix-arg)
-      (apply fn args)))
-
-  (advice-add #'server-edit-abort :around
-              #'my/server-edit-abort--with-editor-a))
-
 ;; 固定段落从左到右，保留与 Doom 字体初始化一致的双向重排设置。
 (setq-default bidi-paragraph-direction 'left-to-right
               bidi-display-reordering t
               bidi-inhibit-bpa t)
 
-;; 避免 Emacs 30 上 smartparens 的内部变量未初始化导致
-;; (void-variable smartparens-mode--suppress-set-explicitly) 报错：
-;; 提前加载 smartparens，确保其 minor-mode 正确定义
-(use-package! smartparens
-  :demand t)
+(defun my/enable-expreg-sentence-in-text-mode ()
+  "Include the current sentence when expanding a text selection."
+  (require 'expreg)
+  (setq-local expreg-functions
+              (cons #'expreg--sentence (remq #'expreg--sentence expreg-functions))))
 
-;; 已有的空括号也能用回车展开；缩进由当前语言模式决定。
-(defun my/empty-code-pair-bounds ()
-  "Return the bounds inside an empty code pair on the current line."
-  (when (and (derived-mode-p 'prog-mode)
-             (bound-and-true-p smartparens-mode)
-             (not (nth 8 (syntax-ppss))))
-    (save-excursion
-      (let* ((start (progn (skip-chars-backward " \t") (point)))
-             (open (char-before))
-             (end (progn (skip-chars-forward " \t") (point))))
-        (when (and (memq open '(?\( ?\[ ?\{))
-                   (eq (char-after) (matching-paren open)))
-          (cons start end))))))
-
-(defun my/expand-empty-code-pair-on-newline-a (fn &rest args)
-  "Expand an empty code pair when FN inserts a single interactive newline."
-  (let ((bounds (and (memq this-command
-                           '(newline newline-and-indent
-                             electric-newline-and-maybe-indent))
-                     (memq last-command-event '(10 13 return))
-                     (or (null (car args)) (equal (car args) 1))
-                     (not (use-region-p))
-                     (my/empty-code-pair-bounds))))
-    (when bounds
-      (delete-region (car bounds) (cdr bounds)))
-    (prog1 (apply fn args)
-      (when bounds
-        (save-excursion
-          (newline)
-          (indent-according-to-mode))
-        (indent-according-to-mode)))))
-
-(after! smartparens
-  ;; 替换只在刚插入括号后生效的 RET 延迟处理，避免重复换行。
-  (dolist (pair '("(" "[" "{"))
-    (sp-local-pair 'prog-mode pair nil
-                   :post-handlers '(:rem ("||\n[i]" "RET"))))
-  (advice-add #'newline :around #'my/expand-empty-code-pair-on-newline-a))
-
-;; smartSelect: Alt+o 扩大选区, Alt+p 缩小选区（全局）
 (use-package! expreg
   :commands (expreg-expand expreg-contract)
   :init
-  (map! :nvi "M-o" #'expreg-expand
+  (map! :map text-mode-map
+        :nvi "M-o" #'expreg-expand
         :nvi "M-p" #'expreg-contract)
-  (after! expreg
-    (defun my/expreg-dart--child (node type)
-      "Return the immediate named child of NODE with TYPE, if any."
-      (cl-loop for index below (treesit-node-child-count node t)
-               for child = (treesit-node-child node index t)
-               when (equal (treesit-node-type child) type)
-               return child))
+  (add-hook 'text-mode-hook #'my/enable-expreg-sentence-in-text-mode)
+  :config
+  (defun my/expreg-preserve-manual-region-a (fn &rest args)
+    "Make FN expand a new character region without dropping selected text."
+    (let ((bounds (and (use-region-p)
+                       (not (bound-and-true-p rectangle-mark-mode))
+                       (not (and (eq (bound-and-true-p evil-state) 'visual)
+                                 (memq evil-visual-selection '(line screen-line block))))
+                       (cons (region-beginning) (region-end)))))
+      (if (or (null bounds)
+              (= (car bounds) (cdr bounds))
+              (equal bounds (cdar expreg--prev-regions)))
+          (apply fn args)
+        (let* ((functions expreg-functions)
+               ;; Keep even a single selected bracket in the contraction history.
+               (expreg--validation-white-list
+                (cons 'my/expreg-manual-region expreg--validation-white-list))
+               (expreg-functions
+                (list
+                 (lambda ()
+                   (cons
+                    (cons 'my/expreg-manual-region bounds)
+                    (cl-remove-if-not
+                     (lambda (range)
+                       (and (<= (cadr range) (car bounds))
+                            (>= (cddr range) (cdr bounds))))
+                     (mapcan (lambda (function)
+                               (save-excursion (funcall function)))
+                             functions)))))))
+          (apply fn args)))))
 
-    (defun my/expreg-dart--selector-p (node)
-      "Return non-nil when NODE continues a Dart receiver expression."
-      (member (treesit-node-type node)
-              '("selector" "unconditional_assignable_selector"
-                "conditional_assignable_selector")))
-
-    (defun my/expreg-dart--receiver (node)
-      "Find the primary expression preceding NODE's selector chain."
-      (while (and node
-                  (or (my/expreg-dart--selector-p node)
-                      (equal (treesit-node-type node) "comment")))
-        ;; Include anonymous siblings so commas/operators stop the search.
-        (setq node (treesit-node-prev-sibling node)))
-      (when (and node
-                 (member (treesit-node-type node)
-                         '("identifier" "this" "super" "parenthesized_expression"
-                           "list_literal" "set_or_map_literal" "string_literal"
-                           "const_object_expression" "new_expression"
-                           "function_expression" "decimal_integer_literal"
-                           "hex_integer_literal" "decimal_floating_point_literal"
-                           "true" "false" "null_literal"))
-                 (not (treesit-node-check node 'has-error)))
-        node))
-
-    (defun my/expreg-dart-calls ()
-      "Return complete Dart calls containing point, including flattened calls."
-      (when (derived-mode-p 'dart-mode 'dart-ts-mode)
-        (when-let* ((parser (cl-find 'dart (treesit-parser-list)
-                                     :key #'treesit-parser-language)))
-          (let ((origin (point))
-                (node (treesit-node-at (point) parser))
-                seen ranges)
-            (while node
-              (when-let* ((receiver (my/expreg-dart--receiver node))
-                          (begin (treesit-node-start receiver)))
-                (unless (memq begin seen)
-                  (push begin seen)
-                  (let ((selector (treesit-node-next-sibling receiver)))
-                    (while (and selector
-                                (or (my/expreg-dart--selector-p selector)
-                                    (equal (treesit-node-type selector) "comment"))
-                                (not (treesit-node-check selector 'has-error)))
-                      (when-let* ((part (my/expreg-dart--child selector "argument_part"))
-                                  (arguments (my/expreg-dart--child part "arguments"))
-                                  (end (treesit-node-end arguments)))
-                        (when (and (<= begin origin) (<= origin end)
-                                   (eq (char-after (treesit-node-start arguments)) ?\()
-                                   (eq (char-before end) ?\)))
-                          (push (cons 'my/expreg-dart-call (cons begin end)) ranges)))
-                      (setq selector (treesit-node-next-sibling selector))))))
-              (setq node (treesit-node-parent node)))
-            ranges))))
-
-    (defun my/expreg-preserve-manual-region-a (fn &rest args)
-      "Make FN expand a new character region without dropping selected text."
-      (let ((bounds (and (use-region-p)
-                         (not (bound-and-true-p rectangle-mark-mode))
-                         (not (and (eq (bound-and-true-p evil-state) 'visual)
-                                   (memq evil-visual-selection '(line screen-line block))))
-                         (cons (region-beginning) (region-end)))))
-        (if (or (null bounds)
-                (= (car bounds) (cdr bounds))
-                (equal bounds (cdar expreg--prev-regions)))
-            (apply fn args)
-          (let* ((functions expreg-functions)
-                 ;; Keep even a single selected bracket in the contraction history.
-                 (expreg--validation-white-list
-                  (cons 'my/expreg-manual-region expreg--validation-white-list))
-                 (expreg-functions
-                  (list
-                   (lambda ()
-                     (cons
-                      (cons 'my/expreg-manual-region bounds)
-                      (cl-remove-if-not
-                       (lambda (range)
-                         (and (<= (cadr range) (car bounds))
-                              (>= (cddr range) (cdr bounds))))
-                       (mapcan (lambda (function)
-                                 (save-excursion (funcall function)))
-                               functions)))))))
-            (apply fn args)))))
-
-    (setq-default expreg-functions
-                  (cons #'my/expreg-dart-calls
-                        (remq #'my/expreg-dart-calls (default-value 'expreg-functions))))
-    (dolist (buffer (buffer-list))
-      (with-current-buffer buffer
-        (when (local-variable-p 'expreg-functions)
-          (setq expreg-functions
-                (cons #'my/expreg-dart-calls
-                      (remq #'my/expreg-dart-calls expreg-functions))))))
-    (advice-add #'expreg-expand :around #'my/expreg-preserve-manual-region-a)
-
-    ;; 仅在文本类模式启用句子级扩选（官方建议）
-    (defun my/enable-expreg-sentence-in-text-mode ()
-      "Enable sentence expansion in the current text buffer."
-      (make-local-variable 'expreg-functions)
-      (add-to-list 'expreg-functions #'expreg--sentence))
-    (add-hook 'text-mode-hook #'my/enable-expreg-sentence-in-text-mode)))
-
-;; If you use `org' and don't want your org files in the default location below,
-;; change `org-directory'. It must be set before org loads!
+  (advice-add #'expreg-expand :around #'my/expreg-preserve-manual-region-a))
 
 (defun my/browse-notes ()
   "Open `org-directory' directly."
@@ -240,17 +76,19 @@
 (map! :leader
       :desc "Find file in notes" "n f" #'my/find-in-notes
       :desc "Browse notes"       "n F" #'my/browse-notes)
-;; org-modern SF Mono
-;; ellipsis https://endlessparentheses.com/changing-the-org-mode-ellipsis.html
+
 (after! org
   (setq org-ellipsis " ⤵"
         org-edit-src-content-indentation 2)
-  ;; 两个上游补丁项目的字体族名不同，保留原名并使用 Emacs 原生回退。
+  ;; Org 自带 Markdown 导出器，首次导出时再加载。
+  (add-to-list 'org-export-backends 'md)
+  (when (featurep 'ox) (require 'ox-md))
+  ;; 两个上游补丁项目的字体族名不同。
   (setopt face-font-family-alternatives
           (cons '("Sarasa Term SC Nerd" "Sarasa Term SC Nerd Font")
                 (assoc-delete-all "Sarasa Term SC Nerd"
                                   face-font-family-alternatives)))
-  ;; 折叠标记沿用原 Org 字体；恢复随正文选字时，移除下面的 :family 设置。
+  ;; 折叠标记沿用原 Org 字体。
   (custom-set-faces
    '(org-ellipsis ((t (:family "Sarasa Term SC Nerd" :foreground "#E6DC88"))))))
 
@@ -276,17 +114,26 @@
 (use-package! valign
   :hook (org-mode . valign-mode))
 
-;; org-babel: 允许执行 dart/flutter 代码块
-(after! org
-  (require 'ob-dart)
-  (add-to-list 'org-babel-load-languages '(dart . t))
-  (org-babel-do-load-languages 'org-babel-load-languages
-                               org-babel-load-languages)
-  ;; dart 输出默认按 raw 插入，避免 Org 对逗号做转义
-  (setq org-babel-default-header-args:dart
-        '((:results . "output raw"))))
+(when (featurep 'neomacs)
+  (defun my/neomacs-org-frame-faces-h (&optional frame)
+    "Apply missing Org and Outline face specifications to graphical FRAME."
+    (let ((frame (or frame (selected-frame))))
+      (when (and (featurep 'org-faces) (display-graphic-p frame)
+                 (not (ignore-errors (face-attribute 'org-default :inherit frame))))
+        (dolist (face (face-list))
+          (when (string-match-p (rx string-start (or "org-" "outline-"))
+                                (symbol-name face))
+            ;; Neomacs 0.0.20 lists lazy faces before they exist on this frame.
+            (condition-case nil
+                (face-attribute face :foreground frame)
+              (error (face-spec-recalc face frame))))))))
 
-;; 更简洁：基于主题设置，仅改字重，继承 outline-N 以保留颜色等样式
+  ;; org-mode reads org-default before running any of its mode hooks.
+  (after! org
+    (advice-add #'org-mode :before #'my/neomacs-org-frame-faces-h))
+  (add-hook 'after-make-frame-functions #'my/neomacs-org-frame-faces-h))
+
+;; 各级标题沿用主题颜色和常规字重。
 (after! org
   (custom-theme-set-faces! 'user
     '(org-document-title :weight normal)
@@ -330,9 +177,7 @@
     (not (memq evil-state '(insert replace))))
 
   (add-hook 'evil-escape-inhibit-functions #'my/evil-escape--outside-editing-p)
-  ;; 补回旧配置覆盖的默认保护，同时保留其他配置追加的排除项。
-  (dolist (mode '(neotree-mode treemacs-mode vterm-mode ghostel-mode dired-mode))
-    (add-to-list 'evil-escape-excluded-major-modes mode))
+  (add-to-list 'evil-escape-excluded-major-modes 'dired-mode)
   (add-to-list 'evil-escape-excluded-states 'visual))
 
 ;; 仅在 Evil /、? 的搜索模式构造期间扩展纯小写拼音，保留英文分支。
@@ -457,43 +302,15 @@ if expansion fails or exceeds Emacs's regexp compilation limits."
   (dolist (fn '(completion-try-completion completion-all-completions))
     (advice-add fn :around #'my/file-completion-styles-a)))
 
-(load! "+file-location")
-
-(after! yasnippet
-  (make-directory (expand-file-name "snippets/" doom-user-dir) t))
-
-;; 自动跟踪当前buffer
-(after! treemacs
-  (treemacs-follow-mode 1)
-  (add-hook 'treemacs-mode-hook
-            (lambda ()
-              (when (bound-and-true-p treemacs-project-follow-mode)
-                ;; 关闭treemacs自动切换项目
-                (treemacs-project-follow-mode -1)))))
-
-;; 修改下划线为单词字符
 (defun my/treat-underscore-as-word ()
+  "Treat underscores as part of a word in text buffers."
   (modify-syntax-entry ?_ "w"))
 
-(add-hook 'prog-mode-hook #'my/treat-underscore-as-word)
 (add-hook 'text-mode-hook #'my/treat-underscore-as-word)
-
-;; vterm 字符 自动贴左
-(after! vterm
-  (defun my/vterm-stick-left ()
-    (setq-local auto-hscroll-mode nil
-                hscroll-margin 0
-                truncate-lines t)
-    (set-window-hscroll (selected-window) 0))
-  (add-hook 'vterm-mode-hook #'my/vterm-stick-left))
-;; vterm放大/缩小时也强制贴左
-(defun my/vterm-reset-hscroll (&rest _)
-  (when (derived-mode-p 'vterm-mode)
-    (set-window-hscroll (selected-window) 0)))
-(advice-add 'text-scale-adjust :after #'my/vterm-reset-hscroll)
 
 ;; 中英文间距由手动编辑，禁用文本模式的自动间距处理。
 (remove-hook 'text-mode-hook #'pangu-spacing-mode)
+
 (after! pangu-spacing
   (when (bound-and-true-p global-pangu-spacing-mode)
     (global-pangu-spacing-mode -1))
@@ -502,11 +319,6 @@ if expansion fails or exceeds Emacs's regexp compilation limits."
       (when (bound-and-true-p pangu-spacing-mode)
         (pangu-spacing-mode -1)))))
 
-;; pyim（从零：先保证基础词库可用，再叠加清华词库）
-;;
-;; 用法：
-;; - `C-\\` 切换输入法（Emacs 默认键位）
-;; - 切到 pyim 后，输入 shuzu 应该能得到「数组」
 (after! pyim
   (defvar gcmh-high-cons-threshold)
   (defvar gcmh-idle-timer)
@@ -551,44 +363,6 @@ Suspend the pending idle collection until input and candidate selection finish."
           ("s" "sh")
           ("z" "zh")
           ("l" "n")))
-  (defun my/pyim-probe-program-mode ()
-    "Prefer English in code, recognizing nested Dart string interpolation."
-    (if (and (derived-mode-p 'dart-ts-mode)
-             (fboundp 'treesit-node-on)
-             (treesit-parser-list))
-        (let* ((position (point))
-               ;; 输入位置左侧的字符决定上下文，避免把字符串前的空白
-               ;; 或插值后的文字归入右侧的语法节点。
-               (node (treesit-node-on (max (point-min) (1- position)) position))
-               (english t)
-               done)
-          (while (and node (not done))
-            (pcase (treesit-node-type node)
-              ((or "comment" "documentation_comment")
-               (setq english
-                     (and (= position (treesit-node-end node))
-                          (eq (char-before position) ?/)
-                          (eq (char-before (1- position)) ?*))
-                     done t))
-              ("string_literal"
-               (setq english (>= position (treesit-node-end node))
-                     done t))
-              ("template_substitution"
-               ;; ${...} 后已经回到字符串；$name 后仍可继续输入变量名。
-               (unless (and (= position (treesit-node-end node))
-                            (eq (char-before position) ?}))
-                 (setq done t)))
-              ("ERROR"
-               (setq english (pyim-probe-program-mode)
-                     done t)))
-            (setq node (treesit-node-parent node)))
-          english)
-      (pyim-probe-program-mode)))
-
-  ;; 程序员友好：代码区默认英文，字符串和注释可输入中文。
-  (setq-default pyim-english-input-switch-functions
-                '(my/pyim-probe-program-mode
-                  pyim-probe-isearch-mode))
   ;; 基础词库（优先保证常用词可用）
   (when (require 'pyim-basedict nil t)
     (pyim-basedict-enable))
@@ -599,44 +373,58 @@ Suspend the pending idle collection until input and candidate selection finish."
   ;; 不切输入法也能临时纯英文输入
   (define-key pyim-mode-map (kbd "C-.") #'pyim-toggle-input-ascii))
 
-;; org 写中文：允许中文标点（不强制半角）
-(add-hook 'org-mode-hook
-          (lambda ()
-            ;; org 里更偏中文输入（isearch 时仍强制英文）
-            (setq-local pyim-english-input-switch-functions
-                        '(pyim-probe-isearch-mode))
-            ;; 取消“行首/标点后强制半角”的探针
-            (setq-local pyim-punctuation-half-width-functions nil)))
+(defun my/org-pyim-h ()
+  "Use Chinese punctuation in Org and ASCII during incremental search."
+  (setq-local pyim-english-input-switch-functions '(pyim-probe-isearch-mode)
+              pyim-punctuation-half-width-functions nil))
 
-;; 关闭treemacs自动追踪（已在前面 after! treemacs 中统一处理）
-;; Whenever you reconfigure a package, make sure to wrap your config in an
-;; `after!' block, otherwise Doom's defaults may override your settings. E.g.
-;;
-;;   (after! PACKAGE
-;;     (setq x y))
-;;
-;; The exceptions to this rule:
-;;
-;;   - Setting file/directory variables (like `org-directory')
-;;   - Setting variables which explicitly tell you to set them before their
-;;     package is loaded (see 'C-h v VARIABLE' to look up their documentation).
-;;   - Setting doom variables (which start with 'doom-' or '+').
-;;
-;; Here are some additional functions/macros that will help you configure Doom.
-;;
-;; - `load!' for loading external *.el files relative to this one
-;; - `use-package!' for configuring packages
-;; - `after!' for running code after a package has loaded
-;; - `add-load-path!' for adding directories to the `load-path', relative to
-;;   this file. Emacs searches the `load-path' when you load packages with
-;;   `require' or `use-package'.
-;; - `map!' for binding new keys
-;;
-;; To get information about any of these functions/macros, move the cursor over
-;; the highlighted symbol at press 'K' (non-evil users must press 'C-c c k').
-;; This will open documentation for it, including demos of how they are used.
-;; Alternatively, use `C-h o' to look up a symbol (functions, variables, faces,
-;; etc).
-;;
-;; You can also try 'gd' (or 'C-c c d') to jump to their definition and see how
-;; they are implemented.
+(add-hook 'org-mode-hook #'my/org-pyim-h)
+
+(defun my/org-idle-save-safe-p ()
+  "Allow idle saves for modified, existing local plaintext Org documents."
+  (and (derived-mode-p 'org-mode)
+       buffer-file-name (buffer-modified-p)
+       (not (or buffer-read-only (buffer-base-buffer)
+                (file-remote-p buffer-file-name)
+                (bound-and-true-p epa-file-encrypt-to)
+                (string-match-p (if (boundp 'epa-file-name-regexp) epa-file-name-regexp
+                                  "\\.gpg\\(?:~\\|\\.~[0-9]+~\\)?\\'")
+                                buffer-file-name)))
+       (file-regular-p buffer-file-name)
+       (not (and (featurep 'org-crypt)
+                 (save-restriction
+                   (widen)
+                   (text-property-not-all (point-min) (point-max) 'org-crypt-text nil))))
+       (let ((owner (file-locked-p buffer-file-name)))
+         (or (null owner) (eq owner t)))))
+
+(defun my/org-idle-save-preserve-text-a (save buffer)
+  "Preserve document text during an idle save of BUFFER."
+  (with-current-buffer buffer
+    (let ((require-final-newline nil)
+          (before-save-hook (remq #'toc-org-insert-toc
+                                  (remq #'org-roam-link-replace-all before-save-hook))))
+      (funcall save buffer))))
+
+(use-package! super-save
+  :after org
+  :demand t
+  :config
+  (when super-save-mode (super-save-mode -1))
+  (setq super-save-auto-save-when-idle t
+        super-save-idle-duration 30
+        super-save-all-buffers t
+        super-save-remote-files nil
+        super-save-when-focus-lost nil
+        super-save-when-buffer-switched nil
+        super-save-triggers nil
+        super-save-hook-triggers nil
+        super-save-handle-org-src nil
+        super-save-handle-edit-indirect nil
+        super-save-delete-trailing-whitespace nil)
+  ;; 此谓词先排除远程文件；包的后续谓词再检查可写权限和磁盘版本。
+  (add-hook 'super-save-predicates #'my/org-idle-save-safe-p -90)
+  (advice-add #'super-save-buffer :around #'my/org-idle-save-preserve-text-a)
+  (super-save-mode 1))
+
+;;; config.el ends here
