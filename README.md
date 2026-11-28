@@ -1,6 +1,6 @@
 # 用 Doom Emacs 写 Org 笔记
 
-这是一套用于 macOS 的中文 Org 写作配置。笔记、日程和快速记录共用 `org-directory`，Org-roam 的笔记放在其 `roam/` 子目录。文档可导出为 HTML、Markdown、纯文本、iCalendar、LaTeX 和 ODT。
+这是一套用于 macOS 的中文 Org 写作配置。笔记、日程和快速记录共用 `org-directory`。Org-roam 索引整个笔记目录，新建节点保存在 `roam/`，日记保存在 `roam/daily/`。要让已有笔记中的链接出现在目标的反向链接里，可在第一个标题之前运行 `M-x org-id-get-create` 给整篇笔记添加 ID，然后保存。文档可导出为 HTML、Markdown、纯文本、iCalendar、LaTeX 和 ODT。
 
 ## 打开笔记
 

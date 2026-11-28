@@ -4,8 +4,21 @@
 (load! "+org-src")
 
 (setq doom-theme 'doom-moonlight
-      display-line-numbers-type 'relative
-      org-roam-directory (expand-file-name "roam" org-directory))
+      display-line-numbers-type 'relative)
+
+;; 旧笔记也参与反向链接，新建节点和日记仍写入原来的子目录。
+(setq org-roam-directory org-directory
+      org-roam-capture-templates
+      '(("d" "default" plain "%?"
+         :target (file+head "roam/%<%Y%m%d%H%M%S>-${slug}.org"
+                            "#+title: ${title}\n")
+         :unnarrowed t))
+      org-roam-extract-new-file-path "roam/%<%Y%m%d%H%M%S>-${slug}.org"
+      org-roam-capture-ref-templates
+      '(("r" "ref" plain "%?"
+         :target (file+head "roam/${slug}.org" "#+title: ${title}")
+         :unnarrowed t))
+      org-roam-dailies-directory "roam/daily/")
 
 ;; 补全弹窗默认选中第一项，Enter 接受候选而不换行。
 (after! corfu
