@@ -18,6 +18,8 @@
         (setq doom-font (font-spec :family family :size my/dev-font-size))))))
 
 (when (featurep 'neomacs)
+  (menu-bar-mode -1)
+
   (defun my/neomacs-normalize-font-a (original font)
     "Parse sized FONT directly when Neomacs already supplies its family.
 Doom's XLFD lookup cannot match even the active font on Neomacs 0.0.20."
@@ -28,6 +30,44 @@ Doom's XLFD lookup cannot match even the active font on Neomacs 0.0.20."
           spec
         (funcall original font))))
   (advice-add 'doom-normalize-font :around #'my/neomacs-normalize-font-a))
+
+;; Neomacs 0.0.21 可以绘制深色标题栏，但尚未把 ns-appearance 传给 AppKit。
+(when (and (featurep 'neomacs) (eq system-type 'darwin))
+  (defun my/neomacs-load-appearance-module ()
+    "Build the AppKit appearance module in Doom's cache and load it."
+    (let* ((source (expand-file-name "native/neomacs-appearance.m" doom-user-dir))
+           (module (expand-file-name
+                    (format "neomacs-appearance-%s.dylib" system-configuration)
+                    doom-cache-dir)))
+      (when (or (not (file-exists-p module)) (file-newer-than-file-p source module))
+        (make-directory doom-cache-dir t)
+        (let ((output (make-temp-file (concat module "-") nil ".dylib")))
+          (unwind-protect
+              (with-temp-buffer
+                (unless (equal 0 (call-process "/usr/bin/clang" nil '(t t) nil
+                                               "-dynamiclib" "-fobjc-arc" "-framework" "AppKit"
+                                               "-I/opt/homebrew/include" "-I/usr/local/include"
+                                               source "-o" output))
+                  (error "%s" (string-trim (buffer-string))))
+                (rename-file output module t))
+            (when (file-exists-p output) (delete-file output)))))
+      (module-load module)))
+
+  (defun my/neomacs-sync-titlebar-h (&optional frame)
+    "Match native window titles to the background of graphical FRAME."
+    (when (display-graphic-p frame)
+      (condition-case err
+          (progn
+            (unless (fboundp 'my/neomacs-set-dark-appearance)
+              (my/neomacs-load-appearance-module))
+            (my/neomacs-set-dark-appearance
+             (eq (frame-parameter frame 'background-mode) 'dark)))
+        (error (display-warning 'my/dev
+                                (format "Neomacs 标题栏：%s" (error-message-string err)))))))
+
+  (add-hook 'doom-load-theme-hook #'my/neomacs-sync-titlebar-h)
+  (add-hook 'after-make-frame-functions #'my/neomacs-sync-titlebar-h)
+  (my/neomacs-sync-titlebar-h))
 
 (when (featurep 'neomacs)
   (defun my/neomacs-org-fold-marker (overlay)
